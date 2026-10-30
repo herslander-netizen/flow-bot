@@ -1,0 +1,32 @@
+{
+  "name": "flow-bot",
+  "private": true,
+  "description": "Motor de automa\u00e7\u00e3o conversacional determin\u00edstico: configurado com assist\u00eancia de IA, executado sem IA.",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "typecheck": "tsc -b packages/contracts",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "schema": "npm run schema --workspace @flow-bot/contracts"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "4.1.12"
+  },
+  "license": "UNLICENSED"
+}

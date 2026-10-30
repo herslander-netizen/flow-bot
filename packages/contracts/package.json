@@ -1,0 +1,28 @@
+{
+  "name": "@flow-bot/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Contratos, DSL e validador dos fluxos do Flow Bot (sem runtime, sem canal, sem IA).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema/flow-bot-v0.schema.json": "./schema/flow-bot-v0.schema.json"
+  },
+  "files": [
+    "dist",
+    "schema"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "schema": "tsc -b && node scripts/gerar-schema.mjs"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "license": "UNLICENSED"
+}

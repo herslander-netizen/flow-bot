@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "flow-bot/v0",
+  "flow": {
+    "id": "horario",
+    "name": "Pergunta sobre horário",
+    "timezone": "America/Sao_Paulo",
+    "status": "draft",
+    "entryNodeId": "gatilho"
+  },
+  "limits": { "maxStepsPerEvent": 20 },
+  "nodes": [
+    {
+      "id": "gatilho",
+      "type": "trigger.keyword",
+      "config": {
+        "priority": 10,
+        "match": {
+          "mode": "contains",
+          "values": ["horario", "que horas abre", "funcionamento"],
+          "exclude": ["cancelar"]
+        }
+      }
+    },
+    {
+      "id": "resposta",
+      "type": "message.text",
+      "config": { "text": "Abrimos de terça a sábado, das 9h às 19h." }
+    },
+    { "id": "fim", "type": "action.end", "config": {} }
+  ],
+  "edges": [
+    { "id": "e1", "from": "gatilho", "to": "resposta", "port": "next" },
+    { "id": "e2", "from": "resposta", "to": "fim", "port": "next" }
+  ]
+}
