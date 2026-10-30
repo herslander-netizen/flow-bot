@@ -58,3 +58,39 @@ export async function enviarTexto(
     };
   }
 }
+
+/**
+ * Aponta o webhook de uma instância da Evolution para o Flow Bot, com o segredo no cabeçalho (nunca na URL).
+ * Eventos: mensagens e estado da conexão.
+ */
+export async function configurarWebhook(
+  cfg: ConfigDaEvolution,
+  instancia: string,
+  urlDoFlowBot: string,
+  segredo: string,
+): Promise<ResultadoDoEnvio> {
+  const chamar = cfg.fetch ?? fetch;
+  try {
+    const r = await chamar(
+      `${cfg.url.replace(/\/+$/, "")}/webhook/set/${encodeURIComponent(instancia)}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", apikey: cfg.apiKey },
+        body: JSON.stringify({
+          webhook: {
+            enabled: true,
+            url: urlDoFlowBot,
+            byEvents: false,
+            base64: false,
+            headers: { "x-webhook-secret": segredo },
+            events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
+          },
+        }),
+        signal: AbortSignal.timeout(cfg.timeoutMs ?? 15_000),
+      },
+    );
+    return r.ok ? { ok: true } : { ok: false, erro: `evolution_http_${r.status}` };
+  } catch (erro) {
+    return { ok: false, erro: `evolution_rede: ${String(erro)}` };
+  }
+}

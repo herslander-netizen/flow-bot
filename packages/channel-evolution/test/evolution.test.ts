@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { enviarTexto, lerAvisoDaEvolution, textoParaOCliente } from "../src/index.js";
+import {
+  configurarWebhook,
+  enviarTexto,
+  lerAvisoDaEvolution,
+  textoParaOCliente,
+} from "../src/index.js";
 
 const aviso = (data: Record<string, unknown>, event = "messages.upsert") => ({
   event,
@@ -117,5 +122,31 @@ describe("saída", () => {
     const r = await enviarTexto({ url: "https://evo", apiKey: "k", fetch: rede }, "i", "1", "x");
     expect(r.ok).toBe(false);
     expect(r.erro).toContain("evolution_rede");
+  });
+});
+
+describe("configurarWebhook", () => {
+  it("registra o webhook com o segredo no cabeçalho", async () => {
+    const f = vi.fn(async () => new Response("{}", { status: 201 }));
+    expect(
+      await configurarWebhook(
+        { url: "https://evo", apiKey: "k", fetch: f },
+        "flow-studio",
+        "https://bot/webhooks/evolution",
+        "s",
+      ),
+    ).toEqual({ ok: true });
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://evo/webhook/set/flow-studio");
+    expect(JSON.parse(String(init.body))).toEqual({
+      webhook: {
+        enabled: true,
+        url: "https://bot/webhooks/evolution",
+        byEvents: false,
+        base64: false,
+        headers: { "x-webhook-secret": "s" },
+        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
+      },
+    });
   });
 });

@@ -1,0 +1,34 @@
+{
+  "name": "@flow-bot/server",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Serviço do Flow Bot: recebe o WhatsApp pela Evolution, pergunta a realidade ao seu sistema e responde. Serve para o Flow e para qualquer outro sistema.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "flow-bot-server": "./bin/flow-bot-server.mjs"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@flow-bot/channel-evolution": "0.0.0",
+    "@flow-bot/contracts": "0.0.0",
+    "@flow-bot/runtime": "0.0.0",
+    "@flow-bot/store-postgres": "0.0.0",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  }
+}
