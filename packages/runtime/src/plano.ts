@@ -4,6 +4,7 @@
  */
 import {
   validarFluxo,
+  type OpcoesDaValidacao,
   type DocumentoDeFluxo,
   type Problema,
   type TipoDeNo,
@@ -30,8 +31,8 @@ export class FluxoInvalido extends Error {
   }
 }
 
-export function compilar(entrada: unknown): Plano {
-  const r = validarFluxo(entrada);
+export function compilar(entrada: unknown, opcoes: OpcoesDaValidacao = {}): Plano {
+  const r = validarFluxo(entrada, opcoes);
   if (!r.ok) throw new FluxoInvalido(r.problems);
   const doc = r.flow;
   const nos = new Map<string, NoDoPlano>(

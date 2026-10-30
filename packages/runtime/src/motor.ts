@@ -3,7 +3,7 @@
  * de passos. Função pura: sem relógio (o tempo vem no evento), sem E/S (as ações saem como dados) e sem sorteio solto
  * (a semente é o id do evento).
  */
-import type { ConfigDe, Correspondencia } from "@flow-bot/contracts";
+import type { ConfigDe, Correspondencia, Realidade, ValorDeFato } from "@flow-bot/contracts";
 
 import { corresponder } from "./correspondencia.js";
 import type { NoDoPlano, Plano } from "./plano.js";
@@ -57,7 +57,7 @@ export function processar(
   plano: Plano,
   sessaoAtual: Sessao,
   evento: Evento,
-  opcoes: { maxPassos?: number } = {},
+  opcoes: { maxPassos?: number; realidade?: Realidade } = {},
 ): Resultado {
   const sessao = clonar(sessaoAtual);
   delete sessao.erro;
@@ -71,6 +71,8 @@ export function processar(
       sessao,
       contato: evento.type === "message" ? (evento.contact ?? {}) : {},
       textoDaMensagem: texto,
+      realidade: opcoes.realidade ?? {},
+      faltando: new Set<string>(),
     },
     acoes: [],
     passos: [],
@@ -81,7 +83,7 @@ export function processar(
     plano.maxPassos,
     TETO_ABSOLUTO_DE_PASSOS,
   );
-  const fim = (motivo: string): Resultado => ({ sessao, acoes: x.acoes, passos: x.passos, motivo });
+  const fim = (motivo: string): Resultado => resultado(x, motivo);
 
   // 1. Sessão parada num nó: o evento retoma de lá.
   if (sessao.cursor) {
@@ -194,9 +196,19 @@ function guardarCapturas(sessao: Sessao, capturas: string[] | undefined) {
 }
 
 /** Segue do nó `de` pela `porta` até suspender, terminar ou bater no teto de passos. */
+function resultado(x: Execucao, motivo: string): Resultado {
+  return {
+    sessao: x.sessao,
+    acoes: x.acoes,
+    passos: x.passos,
+    motivo,
+    realidadeAusente: [...x.ctx.faltando].sort(),
+  };
+}
+
 function executar(x: Execucao, de: string, porta: string, limite: number): Resultado {
   const { plano, sessao } = x;
-  const fim = (motivo: string): Resultado => ({ sessao, acoes: x.acoes, passos: x.passos, motivo });
+  const fim = (motivo: string): Resultado => resultado(x, motivo);
   let atual = plano.saidas.get(de)?.get(porta);
   let passos = 0;
   while (atual !== undefined) {
@@ -377,12 +389,16 @@ function encerrar(s: Sessao, status: "completed" | "handed_off") {
 }
 
 function avaliarCondicao(
-  v: Valor | undefined,
+  v: ValorDeFato | undefined,
   operador: ConfigDe<"logic.condition">["operator"],
   esperado: string | number | undefined,
 ): boolean {
-  const vazio = v === undefined || String(v).trim() === "";
+  const vazio = v === undefined || (Array.isArray(v) ? v.length === 0 : String(v).trim() === "");
   switch (operador) {
+    case "is_true":
+      return v === true || v === "true";
+    case "is_false":
+      return v === false || v === "false";
     case "is_set":
       return !vazio;
     case "is_empty":

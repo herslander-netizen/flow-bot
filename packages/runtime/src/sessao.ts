@@ -69,6 +69,8 @@ export type Resultado = {
   passos: Passo[];
   /** Por que o evento terminou assim: `suspensa`, `concluida`, `nenhum_gatilho`, `limite_de_passos`… */
   motivo: string;
+  /** Fatos `reality.*` que o fluxo citou e o hospedeiro não entregou neste evento. */
+  realidadeAusente: string[];
 };
 
 export function novaSessao(flowId: string): Sessao {

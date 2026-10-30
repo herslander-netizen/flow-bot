@@ -2,6 +2,7 @@
  * Simulador: roda cenários de conversa contra um fluxo, sem canal e sem enviar nada. O relógio é do cenário
  * (`wait` avança o tempo e dispara os prazos vencidos), então o resultado é sempre o mesmo.
  */
+import type { Realidade } from "@flow-bot/contracts";
 import { z } from "zod";
 
 import { processar } from "./motor.js";
@@ -32,10 +33,34 @@ const Esperado = z
   })
   .strict();
 
+/** Fatos da realidade (sobrescrevem o retrato base a partir deste ponto). */
+const RetratoDeRealidade = z.record(
+  z.string().regex(/^reality\./),
+  z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+);
+
 const PassoDoCenario = z.union([
-  z.object({ say: z.string().max(4000), expect: Esperado.optional() }).strict(),
-  z.object({ wait: z.number().int().min(1).max(604800), expect: Esperado.optional() }).strict(),
-  z.object({ webhook: z.boolean(), expect: Esperado.optional() }).strict(),
+  z
+    .object({
+      say: z.string().max(4000),
+      reality: RetratoDeRealidade.optional(),
+      expect: Esperado.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      wait: z.number().int().min(1).max(604800),
+      reality: RetratoDeRealidade.optional(),
+      expect: Esperado.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      webhook: z.boolean(),
+      reality: RetratoDeRealidade.optional(),
+      expect: Esperado.optional(),
+    })
+    .strict(),
 ]);
 
 export const Cenario = z
@@ -45,6 +70,8 @@ export const Cenario = z
       .object({ firstName: z.string().optional(), name: z.string().optional() })
       .strict()
       .optional(),
+    /** Fatos deste cenário sobre o retrato base (ex.: { "reality.isOpen": false }). */
+    reality: RetratoDeRealidade.optional(),
     steps: z.array(PassoDoCenario).min(1).max(200),
   })
   .strict();
@@ -76,8 +103,13 @@ function textos(acoes: Acao[]): string[] {
   });
 }
 
-export function simular(plano: Plano, cenario: Cenario): RelatorioDoCenario {
+export function simular(
+  plano: Plano,
+  cenario: Cenario,
+  opcoes: { realidade?: Realidade } = {},
+): RelatorioDoCenario {
   let sessao = novaSessao(plano.doc.flow.id);
+  let realidade: Realidade = { ...opcoes.realidade, ...cenario.reality };
   let agora = 0;
   let n = 0;
   const contato: Contato = cenario.contact ?? {};
@@ -85,10 +117,17 @@ export function simular(plano: Plano, cenario: Cenario): RelatorioDoCenario {
     const acoes: Acao[] = [];
     let motivo = "";
     let entrada: string;
+    if (p.reality) realidade = { ...realidade, ...p.reality };
+    const ausentes = new Set<string>();
+    const rodar = (evento: Parameters<typeof processar>[2]) => {
+      const r = processar(plano, sessao, evento, { realidade });
+      r.realidadeAusente.forEach((f) => ausentes.add(f));
+      return r;
+    };
     if ("say" in p) {
       entrada = `> ${p.say}`;
       agora += 1000;
-      const r = processar(plano, sessao, {
+      const r = rodar({
         type: "message",
         id: `m${++n}`,
         at: agora,
@@ -107,7 +146,7 @@ export function simular(plano: Plano, cenario: Cenario): RelatorioDoCenario {
         i++
       ) {
         agora = sessao.prazo;
-        const r = processar(plano, sessao, { type: "timer", id: `t${++n}`, at: agora });
+        const r = rodar({ type: "timer", id: `t${++n}`, at: agora });
         sessao = r.sessao;
         acoes.push(...r.acoes);
         motivo = r.motivo;
@@ -117,7 +156,7 @@ export function simular(plano: Plano, cenario: Cenario): RelatorioDoCenario {
     } else {
       entrada = `(webhook ${p.webhook ? "ok" : "falhou"})`;
       agora += 1000;
-      const r = processar(plano, sessao, {
+      const r = rodar({
         type: "webhook_result",
         id: `w${++n}`,
         at: agora,
@@ -128,13 +167,10 @@ export function simular(plano: Plano, cenario: Cenario): RelatorioDoCenario {
       motivo = r.motivo;
     }
     const saidas = textos(acoes);
-    return {
-      entrada,
-      saidas,
-      status: sessao.status,
-      motivo,
-      falhas: conferir(p.expect, saidas, acoes, sessao),
-    };
+    const falhas = conferir(p.expect, saidas, acoes, sessao);
+    // Fato citado e não entregue é falha do cenário: no ar, a resposta sairia com um buraco.
+    for (const f of ausentes) falhas.push(`fato da realidade ausente: ${f}`);
+    return { entrada, saidas, status: sessao.status, motivo, falhas };
   });
   return { name: cenario.name, ok: passos.every((p) => p.falhas.length === 0), passos };
 }
