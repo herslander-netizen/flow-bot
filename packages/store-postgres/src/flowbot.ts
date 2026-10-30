@@ -20,6 +20,7 @@ import {
 } from "@flow-bot/runtime";
 import type { Pool } from "pg";
 
+import { registrarAprendizado } from "./aprendizado.js";
 import { emTransacao, type Cliente } from "./banco.js";
 
 export type OpcoesDoFlowBot = {
@@ -41,6 +42,13 @@ export type OpcoesDoFlowBot = {
     conversationKey: string;
     agora: Date;
   }) => Promise<Realidade>;
+  /**
+   * Segredo da instalação para contar pessoas diferentes por frase sem guardar quem são. Sem ele, as frases de
+   * aprendizado não são registradas (os contadores continuam).
+   */
+  segredoDoAprendizado?: string;
+  /** Dias de retenção de mensagens e histórico (padrão 90, decisão do responsável). */
+  diasDeRetencao?: number;
 };
 
 export type EntradaDeMensagem = {
@@ -95,6 +103,8 @@ export class FlowBot {
   private readonly planos = new Map<string, Plano>();
   private readonly perfis: readonly PerfilDeRealidade[] | undefined;
   private readonly realidade: OpcoesDoFlowBot["realidade"];
+  private readonly segredoDoAprendizado: string | null;
+  private readonly diasDeRetencao: number;
 
   constructor(opcoes: OpcoesDoFlowBot) {
     this.pool = opcoes.pool;
@@ -103,6 +113,8 @@ export class FlowBot {
     this.reservaMs = opcoes.reservaMs ?? 60_000;
     this.perfis = opcoes.perfis;
     this.realidade = opcoes.realidade;
+    this.segredoDoAprendizado = opcoes.segredoDoAprendizado ?? null;
+    this.diasDeRetencao = opcoes.diasDeRetencao ?? 90;
   }
 
   /** Publica uma versão nova e imutável (só se o fluxo for válido). Republicar o mesmo conteúdo não cria versão. */
@@ -370,6 +382,85 @@ export class FlowBot {
     return r.rows;
   }
 
+  /**
+   * Perguntas que o fluxo não soube tratar, das mais frequentes para as menos. Só aparecem frases vistas em conversas
+   * de pelo menos `minimoDePessoas` pessoas diferentes (mínimo 3): uma mensagem única e pessoal nunca sai daqui.
+   */
+  async perguntasSemResposta(
+    workspaceId: string,
+    opcoes: { flowId?: string; minimoDePessoas?: number; limite?: number } = {},
+  ) {
+    const r = await this.pool.query<{
+      flow_id: string;
+      kind: string;
+      phrase: string;
+      contacts: number;
+      occurrences: number;
+      last_seen: Date;
+    }>(
+      `SELECT flow_id, kind, phrase, contacts, occurrences, last_seen FROM flow_bot.learning_phrases
+        WHERE workspace_id = $1 AND ($2::text IS NULL OR flow_id = $2) AND contacts >= $3
+        ORDER BY contacts DESC, occurrences DESC, phrase
+        LIMIT $4`,
+      [
+        workspaceId,
+        opcoes.flowId ?? null,
+        Math.max(3, opcoes.minimoDePessoas ?? 3),
+        opcoes.limite ?? 100,
+      ],
+    );
+    return r.rows;
+  }
+
+  /** Contadores somados por métrica e chave desde uma data (assuntos, caminhos, encaminhamentos…). */
+  async contadores(workspaceId: string, opcoes: { flowId?: string; desde?: Date } = {}) {
+    const r = await this.pool.query<{
+      flow_id: string;
+      metric: string;
+      key: string;
+      total: number;
+    }>(
+      `SELECT flow_id, metric, key, sum(count)::int AS total FROM flow_bot.learning_counters
+        WHERE workspace_id = $1 AND ($2::text IS NULL OR flow_id = $2) AND ($3::date IS NULL OR day >= $3)
+        GROUP BY flow_id, metric, key
+        ORDER BY metric, total DESC, key`,
+      [workspaceId, opcoes.flowId ?? null, opcoes.desde ?? null],
+    );
+    return r.rows;
+  }
+
+  /**
+   * Apaga o que passou da retenção (mensagens recebidas, histórico, saídas e prazos encerrados, conversas paradas e as
+   * marcas de pessoa do aprendizado). Frases anonimizadas e contadores ficam. Em lotes, para não travar o banco.
+   */
+  async limparAntigos(opcoes: { lote?: number } = {}): Promise<Record<string, number>> {
+    const limite = new Date(this.agora().getTime() - this.diasDeRetencao * 86_400_000);
+    const lote = opcoes.lote ?? 5000;
+    const alvos: [string, string, string][] = [
+      ["inbound_events", "received_at", "TRUE"],
+      ["executions", "created_at", "TRUE"],
+      ["outbound", "created_at", "status IN ('sent', 'failed', 'cancelled')"],
+      ["jobs", "created_at", "status IN ('done', 'failed', 'cancelled')"],
+      ["conversations", "updated_at", "TRUE"],
+      ["learning_phrase_contacts", "seen_at", "TRUE"],
+    ];
+    const apagados: Record<string, number> = {};
+    for (const [tabela, coluna, condicao] of alvos) {
+      let total = 0;
+      for (;;) {
+        const r = await this.pool.query(
+          `DELETE FROM flow_bot.${tabela} WHERE ctid IN (
+             SELECT ctid FROM flow_bot.${tabela} WHERE ${coluna} < $1 AND ${condicao} LIMIT $2)`,
+          [limite, lote],
+        );
+        total += r.rowCount ?? 0;
+        if ((r.rowCount ?? 0) < lote) break;
+      }
+      apagados[tabela] = total;
+    }
+    return apagados;
+  }
+
   async sessao(
     workspaceId: string,
     conversationKey: string,
@@ -533,6 +624,16 @@ export class FlowBot {
           resultado.realidadeAusente,
         ],
       );
+      await registrarAprendizado(c, {
+        workspaceId,
+        flowId: linha.flow_id,
+        conversationKey,
+        agora,
+        resultado,
+        texto: evento.type === "message" ? evento.text : null,
+        contato: evento.type === "message" ? (evento.contact ?? {}) : {},
+        segredo: this.segredoDoAprendizado,
+      });
       return {
         duplicado: false,
         status: sessao.status,

@@ -8,3 +8,5 @@ export {
   type OpcoesDoFlowBot,
   type ResultadoDoRecebimento,
 } from "./flowbot.js";
+export { anonimizar } from "./anonimizar.js";
+export { contadoresDoResultado, frasesDoResultado, type TipoDeFrase } from "./aprendizado.js";
