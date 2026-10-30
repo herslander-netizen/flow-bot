@@ -8,6 +8,7 @@
  */
 import { createHash } from "node:crypto";
 
+import type { PerfilDeRealidade, Realidade } from "@flow-bot/contracts";
 import {
   compilar,
   novaSessao,
@@ -29,6 +30,17 @@ export type OpcoesDoFlowBot = {
   maxTentativas?: number;
   /** Quanto tempo um item fica reservado por um processo antes de outro poder retomá-lo (padrão 60 s). */
   reservaMs?: number;
+  /** Perfis de realidade aceitos na publicação (fatos conferidos contra o perfil declarado no fluxo). */
+  perfis?: readonly PerfilDeRealidade[];
+  /**
+   * Retrato da realidade do hospedeiro para um evento (o que é verdade agora: aberto, serviços, preços…). Chamado
+   * antes de cada processamento, fora da transação do banco.
+   */
+  realidade?: (contexto: {
+    workspaceId: string;
+    conversationKey: string;
+    agora: Date;
+  }) => Promise<Realidade>;
 };
 
 export type EntradaDeMensagem = {
@@ -81,12 +93,16 @@ export class FlowBot {
   private readonly maxTentativas: number;
   private readonly reservaMs: number;
   private readonly planos = new Map<string, Plano>();
+  private readonly perfis: readonly PerfilDeRealidade[] | undefined;
+  private readonly realidade: OpcoesDoFlowBot["realidade"];
 
   constructor(opcoes: OpcoesDoFlowBot) {
     this.pool = opcoes.pool;
     this.agora = opcoes.agora ?? (() => new Date());
     this.maxTentativas = opcoes.maxTentativas ?? 5;
     this.reservaMs = opcoes.reservaMs ?? 60_000;
+    this.perfis = opcoes.perfis;
+    this.realidade = opcoes.realidade;
   }
 
   /** Publica uma versão nova e imutável (só se o fluxo for válido). Republicar o mesmo conteúdo não cria versão. */
@@ -94,7 +110,7 @@ export class FlowBot {
     workspaceId: string,
     documento: unknown,
   ): Promise<{ version: number; checksum: string; nova: boolean }> {
-    const plano = compilar(documento);
+    const plano = compilar(documento, this.perfis ? { perfis: this.perfis } : {});
     const flowId = plano.doc.flow.id;
     const checksum = createHash("sha256").update(canonico(plano.doc)).digest("hex");
     return emTransacao(this.pool, async (c) => {
@@ -345,8 +361,9 @@ export class FlowBot {
       motivo: string;
       steps: unknown[];
       created_at: Date;
+      reality_missing: string[];
     }>(
-      `SELECT event_key, flow_version, status, motivo, steps, created_at FROM flow_bot.executions
+      `SELECT event_key, flow_version, status, motivo, steps, created_at, reality_missing FROM flow_bot.executions
         WHERE workspace_id = $1 AND conversation_key = $2 ORDER BY id`,
       [workspaceId, conversationKey],
     );
@@ -385,6 +402,7 @@ export class FlowBot {
     const chave = `${workspaceId}:${flowId}:${linha.version}`;
     let plano = this.planos.get(chave);
     if (!plano) {
+      // Já validado na publicação; os perfis podem ter mudado desde então, então não são reconferidos aqui.
       plano = compilar(linha.document);
       this.planos.set(chave, plano);
     }
@@ -400,6 +418,10 @@ export class FlowBot {
     payload: Record<string, unknown>,
   ): Promise<ResultadoDoRecebimento> {
     const agora = this.agora();
+    // O retrato vem antes da transação: uma consulta lenta do hospedeiro não segura a trava da conversa.
+    const realidade: Realidade = this.realidade
+      ? await this.realidade({ workspaceId, conversationKey, agora })
+      : {};
     return emTransacao(this.pool, async (c) => {
       const inserido = await c.query(
         `INSERT INTO flow_bot.inbound_events (workspace_id, event_key, conversation_key, kind, payload, received_at)
@@ -448,7 +470,7 @@ export class FlowBot {
         linha.flow_id,
         livre ? null : linha.flow_version,
       );
-      const resultado = processar(plano, linha.session, evento);
+      const resultado = processar(plano, linha.session, evento, { realidade });
       const sessao = resultado.sessao;
 
       await c.query(
@@ -494,8 +516,9 @@ export class FlowBot {
 
       await c.query(
         `INSERT INTO flow_bot.executions
-           (workspace_id, conversation_key, event_key, flow_id, flow_version, status, motivo, steps, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+           (workspace_id, conversation_key, event_key, flow_id, flow_version, status, motivo, steps, created_at,
+            reality, reality_missing)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           workspaceId,
           conversationKey,
@@ -506,6 +529,8 @@ export class FlowBot {
           resultado.motivo,
           JSON.stringify(resultado.passos),
           agora,
+          this.realidade ? JSON.stringify(realidade) : null,
+          resultado.realidadeAusente,
         ],
       );
       return {

@@ -311,4 +311,67 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     expect(enviados.map((e) => e.texto)).toEqual(["Não deu, tente mais tarde."]);
     expect((await c.bot.sessao(c.ws, "c1"))?.session.status).toBe("completed");
   });
+
+  it("usa o retrato da realidade do hospedeiro e registra o que faltou", async () => {
+    let aberto = true;
+    const ws = `ws-${randomUUID()}`;
+    const bot = new FlowBot({
+      pool,
+      realidade: async ({ workspaceId }) =>
+        workspaceId === ws
+          ? { "reality.businessName": "Studio Exemplo", "reality.isOpen": aberto }
+          : {},
+    });
+    const doc = {
+      schemaVersion: "flow-bot/v0",
+      reality: "teste/v1",
+      flow: {
+        id: "real",
+        name: "Real",
+        timezone: "UTC",
+        status: "published",
+        entryNodeId: "inicio",
+      },
+      limits: { maxStepsPerEvent: 20 },
+      nodes: [
+        { id: "inicio", type: "trigger.message_received", config: {} },
+        {
+          id: "aberto",
+          type: "logic.condition",
+          config: { variable: "reality.isOpen", operator: "is_true" },
+        },
+        {
+          id: "sim",
+          type: "message.text",
+          config: { text: "{{reality.businessName}}: estamos abertos!" },
+        },
+        { id: "nao", type: "message.text", config: { text: "Fechado. {{reality.nextOpening}}" } },
+        { id: "fim", type: "action.end", config: {} },
+      ],
+      edges: [
+        { id: "1", from: "inicio", to: "aberto", port: "next" },
+        { id: "2", from: "aberto", to: "sim", port: "true" },
+        { id: "3", from: "aberto", to: "nao", port: "false" },
+        { id: "4", from: "sim", to: "fim", port: "next" },
+        { id: "5", from: "nao", to: "fim", port: "next" },
+      ],
+    };
+    await bot.publicar(ws, doc);
+    const msg = (eventKey: string) =>
+      bot.receberMensagem({
+        workspaceId: ws,
+        conversationKey: "c1",
+        flowId: "real",
+        eventKey,
+        text: "oi",
+      });
+    await msg("e1");
+    aberto = false;
+    await msg("e2");
+    const { enviados, adaptador } = caixa();
+    await bot.entregarPendentes(adaptador, { workspaceId: ws });
+    expect(enviados.map((e) => e.texto)).toEqual(["Studio Exemplo: estamos abertos!", "Fechado."]);
+    const h = await bot.historico(ws, "c1");
+    expect(h.map((e) => e.reality_missing)).toEqual([[], ["reality.nextOpening"]]);
+  });
 });
