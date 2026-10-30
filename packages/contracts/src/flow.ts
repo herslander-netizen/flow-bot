@@ -92,6 +92,11 @@ export const DocumentoDeFluxo = z
         maxStepsPerEvent: z.number().int().min(1).max(200),
       })
       .strict(),
+    /** Perfil de realidade que o fluxo usa (ex.: `flow/v1`); obrigatório se o fluxo citar `reality.*`. */
+    reality: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]*\/v[0-9]+$/, "Use o formato sistema/vN, ex.: flow/v1.")
+      .optional(),
     /** Padrões do fluxo; cada nó pode sobrescrever o que fizer sentido para ele. */
     defaults: PadroesDoFluxo.optional(),
     variables: z.array(DeclaracaoDeVariavel).max(100).default([]),

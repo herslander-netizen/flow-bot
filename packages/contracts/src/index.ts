@@ -20,11 +20,19 @@ export {
   SCHEMA_VERSION,
 } from "./flow.js";
 export {
+  NomeDeRealidade,
+  PerfilDeRealidade,
+  realidadeDeExemplo,
+  TipoDeFato,
+  type Realidade,
+  type ValorDeFato,
+} from "./realidade.js";
+export {
   problemaDoPadrao,
   TAMANHO_MAXIMO_DO_PADRAO,
   type ProblemaDoPadrao,
 } from "./regex-segura.js";
-export { esquemaJsonDoFluxo } from "./json-schema.js";
+export { esquemaJsonDoFluxo, esquemaJsonDoPerfil } from "./json-schema.js";
 export {
   VARIAVEIS_DO_SISTEMA,
   ehVariavelDoSistema,
@@ -34,6 +42,7 @@ export {
 export {
   validarFluxo,
   type CodigoDoProblema,
+  type OpcoesDaValidacao,
   type Problema,
   type ResultadoDaValidacao,
 } from "./validate.js";

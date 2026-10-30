@@ -3,6 +3,7 @@
  *
  * Namespaces do sistema (preenchidos pelo runtime): `contact`, `conversation`, `message`.
  * Namespace do fluxo: `session`, que precisa ser declarado em `variables` (ou gravado por um nó).
+ * Namespace da realidade: `reality`, só leitura, com os fatos do perfil declarado no fluxo (`realidade.ts`).
  */
 export const VARIAVEIS_DO_SISTEMA = [
   "contact.firstName",
@@ -12,7 +13,8 @@ export const VARIAVEIS_DO_SISTEMA = [
 ] as const;
 
 const PLACEHOLDER = /\{\{\s*([^{}]*?)\s*\}\}/g;
-const NOME_VALIDO = /^(?:contact|conversation|message|session)\.[A-Za-z][A-Za-z0-9_]{0,59}$/;
+const NOME_VALIDO =
+  /^(?:contact|conversation|message|session|reality)\.[A-Za-z][A-Za-z0-9_]{0,59}$/;
 
 /** Placeholders de um texto, na ordem em que aparecem. */
 export function placeholdersDoTexto(texto: string): string[] {

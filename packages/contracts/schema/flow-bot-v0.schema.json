@@ -53,6 +53,9 @@
       "required": ["maxStepsPerEvent"],
       "additionalProperties": false
     },
+    "reality": {
+      "type": "string"
+    },
     "defaults": {
       "type": "object",
       "properties": {
@@ -337,7 +340,16 @@
                   },
                   "operator": {
                     "type": "string",
-                    "enum": ["equals", "not_equals", "is_set", "is_empty", "gt", "lt"]
+                    "enum": [
+                      "equals",
+                      "not_equals",
+                      "is_set",
+                      "is_empty",
+                      "gt",
+                      "lt",
+                      "is_true",
+                      "is_false"
+                    ]
                   },
                   "value": {
                     "anyOf": [

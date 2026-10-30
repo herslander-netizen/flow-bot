@@ -5,6 +5,7 @@
 import { z } from "zod";
 
 import { CATALOGO, TIPOS_DE_NO, type EspecDeNo } from "./catalog.js";
+import { PerfilDeRealidade } from "./realidade.js";
 import {
   Aresta,
   DeclaracaoDeVariavel,
@@ -38,6 +39,7 @@ export function esquemaJsonDoFluxo(): Record<string, unknown> {
         })
         .strict(),
       limits: z.object({ maxStepsPerEvent: z.number().int().min(1).max(200) }).strict(),
+      reality: z.string().optional(),
       defaults: PadroesDoFluxo.optional(),
       variables: z.array(DeclaracaoDeVariavel).max(100).optional(),
       nodes: z
@@ -53,5 +55,15 @@ export function esquemaJsonDoFluxo(): Record<string, unknown> {
     description:
       "Estrutura do fluxo. Regras semânticas (alcance, ciclos, portas, variáveis, RegEx segura) são conferidas por validarFluxo().",
     ...z.toJSONSchema(documento, { target: "draft-2020-12", unrepresentable: "any" }),
+  };
+}
+
+/** JSON Schema do perfil de realidade: o que outro sistema preenche para usar o Flow Bot com os seus fatos. */
+export function esquemaJsonDoPerfil(): Record<string, unknown> {
+  return {
+    $id: "https://github.com/herslander-netizen/flow-bot/schema/reality-profile-v1.schema.json",
+    title: "Flow Bot — perfil de realidade v1",
+    description: "Fatos que o sistema hospedeiro entrega a cada evento (namespace reality.*).",
+    ...z.toJSONSchema(PerfilDeRealidade, { target: "draft-2020-12" }),
   };
 }

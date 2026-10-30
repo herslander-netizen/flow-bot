@@ -91,7 +91,16 @@ export const CATALOGO = {
     config: z
       .object({
         variable: z.string().min(1).max(80),
-        operator: z.enum(["equals", "not_equals", "is_set", "is_empty", "gt", "lt"]),
+        operator: z.enum([
+          "equals",
+          "not_equals",
+          "is_set",
+          "is_empty",
+          "gt",
+          "lt",
+          "is_true",
+          "is_false",
+        ]),
         value: z.union([z.string().max(200), z.number()]).optional(),
       })
       .strict(),

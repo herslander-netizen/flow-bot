@@ -1,0 +1,70 @@
+{
+  "$id": "https://github.com/herslander-netizen/flow-bot/schema/reality-profile-v1.schema.json",
+  "title": "Flow Bot — perfil de realidade v1",
+  "description": "Fatos que o sistema hospedeiro entrega a cada evento (namespace reality.*).",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80,
+      "pattern": "^[a-z0-9][a-z0-9-]*\\/v[0-9]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "facts": {
+      "minItems": 1,
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^reality\\.[A-Za-z][A-Za-z0-9_]{0,59}$"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "list"]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "example": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        },
+        "required": ["name", "type", "description", "example"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["id", "name", "facts"],
+  "additionalProperties": false
+}

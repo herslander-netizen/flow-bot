@@ -13,6 +13,7 @@ import {
   type TipoDeNo,
 } from "./catalog.js";
 import { DocumentoDeFluxo, type No } from "./flow.js";
+import type { PerfilDeRealidade } from "./realidade.js";
 import { problemaDoPadrao } from "./regex-segura.js";
 import { ehVariavelDoSistema, nomeDeVariavelValido, placeholdersDoTexto } from "./variables.js";
 
@@ -38,7 +39,10 @@ export type CodigoDoProblema =
   | "regex_insegura"
   | "curinga_total"
   | "limiar_ausente"
-  | "atraso_invalido";
+  | "atraso_invalido"
+  | "realidade_sem_perfil"
+  | "perfil_desconhecido"
+  | "fato_desconhecido";
 
 export type Problema = {
   code: CodigoDoProblema;
@@ -62,7 +66,15 @@ function caminho(partes: readonly PropertyKey[]): string {
     .join("");
 }
 
-export function validarFluxo(entrada: unknown): ResultadoDaValidacao {
+export type OpcoesDaValidacao = {
+  /** Perfis de realidade conhecidos. Com eles, cada `reality.*` usado é conferido contra o perfil declarado. */
+  perfis?: readonly PerfilDeRealidade[];
+};
+
+export function validarFluxo(
+  entrada: unknown,
+  opcoes: OpcoesDaValidacao = {},
+): ResultadoDaValidacao {
   const estrutura = DocumentoDeFluxo.safeParse(entrada);
   if (!estrutura.success) {
     return {
@@ -232,7 +244,7 @@ export function validarFluxo(entrada: unknown): ResultadoDaValidacao {
       );
   }
 
-  conferirVariaveis(doc, nos, configs, add);
+  conferirVariaveis(doc, nos, configs, add, opcoes.perfis);
   conferirAlcanceELoops(doc, nos, configs, saidas, add);
 
   return problemas.length
@@ -283,7 +295,16 @@ function conferirVariaveis(
   nos: Map<string, { no: No; indice: number }>,
   configs: Map<string, Configurado>,
   add: (p: Problema) => void,
+  perfis: readonly PerfilDeRealidade[] | undefined,
 ) {
+  const perfil = doc.reality ? perfis?.find((p) => p.id === doc.reality) : undefined;
+  if (doc.reality && perfis && !perfil)
+    add({
+      code: "perfil_desconhecido",
+      message: `O perfil de realidade "${doc.reality}" não é conhecido aqui.`,
+      path: "reality",
+    });
+  const fatos = new Set(perfil?.facts.map((f) => f.name));
   const declaradas = new Set<string>();
   doc.variables.forEach((v, i) => {
     if (declaradas.has(v.name))
@@ -299,10 +320,34 @@ function conferirVariaveis(
     if (!nomeDeVariavelValido(nome)) {
       add({
         code: "variavel_invalida",
-        message: `"${nome}" não é um nome de variável válido (use contact., conversation., message. ou session.).`,
+        message: `"${nome}" não é um nome de variável válido (use contact., conversation., message., session. ou reality.).`,
         path,
         nodeId,
       });
+      return;
+    }
+    if (nome.startsWith("reality.")) {
+      if (gravacao)
+        add({
+          code: "variavel_invalida",
+          message: `A realidade é só leitura: "${nome}" não pode ser gravada em "${nodeId}".`,
+          path,
+          nodeId,
+        });
+      else if (!doc.reality)
+        add({
+          code: "realidade_sem_perfil",
+          message: `"${nome}" é um fato da realidade: declare o perfil em "reality" (ex.: "flow/v1").`,
+          path,
+          nodeId,
+        });
+      else if (perfil && !fatos.has(nome))
+        add({
+          code: "fato_desconhecido",
+          message: `O perfil "${perfil.id}" não tem o fato "${nome}".`,
+          path,
+          nodeId,
+        });
       return;
     }
     if (nome.startsWith("session.")) {
