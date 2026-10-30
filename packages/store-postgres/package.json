@@ -1,0 +1,31 @@
+{
+  "name": "@flow-bot/store-postgres",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Persistência e execução durável do Flow Bot em Postgres: versões publicadas, sessões, eventos idempotentes, fila de prazos e caixa de saída.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@flow-bot/contracts": "0.0.0",
+    "@flow-bot/runtime": "0.0.0",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

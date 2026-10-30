@@ -10,6 +10,23 @@ permissions:
 jobs:
   verificar:
     runs-on: ubuntu-latest
+    services:
+      # Banco descartável só para os testes de persistência (sem custo, some ao fim do job).
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: flowbot
+          POSTGRES_PASSWORD: flowbot
+          POSTGRES_DB: flowbot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowbot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://flowbot:flowbot@localhost:5432/flowbot_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
