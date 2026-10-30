@@ -1,0 +1,25 @@
+{
+  "name": "@flow-bot/channel-evolution",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Canal WhatsApp do Flow Bot pela Evolution API v2 (gratuita, hospedada por você): lê os avisos e envia as respostas.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@flow-bot/runtime": "0.0.0"
+  }
+}
