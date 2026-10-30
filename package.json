@@ -17,7 +17,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "schema": "npm run schema --workspace @flow-bot/contracts",
-    "simular": "tsc -b packages/contracts packages/runtime && node packages/runtime/bin/simular.mjs"
+    "simular": "tsc -b packages/contracts packages/runtime && node packages/runtime/bin/simular.mjs",
+    "simular:flow": "npm run simular -- presets/flow/atendimento.json presets/flow/atendimento.cenarios.json presets/flow/perfil.json"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

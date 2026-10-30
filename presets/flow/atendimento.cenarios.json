@@ -1,0 +1,325 @@
+{
+  "scenarios": [
+    {
+      "name": "Pergunta de preço responde com o catálogo real",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "Quanto custa?",
+          "expect": {
+            "replies": [
+              "Serviços de Studio Exemplo:\n• Corte — R$ 45,00\n• Escova — R$ 60,00\n• Manicure — R$ 35,00\nPara agendar: https://flow.exemplo/b/studio-exemplo"
+            ],
+            "status": "completed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pedido de agendamento manda o link e o próximo horário livre",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "quero agendar um horário",
+          "expect": {
+            "replies": [
+              "Para agendar em Studio Exemplo, escolha o horário por aqui: https://flow.exemplo/b/studio-exemplo\nPróximo horário livre: hoje às 15:30."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Horário com o negócio aberto",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "vocês estão abertos?",
+          "expect": {
+            "replies": ["Estamos abertos: hoje das 9h às 19h."]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Horário com o negócio fechado",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "reality": {
+        "reality.isOpen": false
+      },
+      "steps": [
+        {
+          "say": "que horas abre?",
+          "expect": {
+            "replies": ["No momento estamos fechados. Abrimos amanhã às 9h."]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Endereço",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "Onde fica?",
+          "expect": {
+            "replies": ["Estamos em Rua das Flores, 120 — Centro."]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Formas de pagamento",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "aceita pix?",
+          "expect": {
+            "replies": ["Aceitamos Pix, cartão e dinheiro."]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pedido de atendente com equipe disponível",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "quero falar com um atendente",
+          "expect": {
+            "contains": ["Vou chamar alguém da equipe"],
+            "handoff": true,
+            "status": "handed_off"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pedido de atendente sem equipe disponível",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "reality": {
+        "reality.teamAvailable": false
+      },
+      "steps": [
+        {
+          "say": "quero falar com um atendente",
+          "expect": {
+            "contains": ["A equipe não está disponível agora"],
+            "handoff": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agendar tem prioridade sobre preço na mesma frase",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "quero agendar e saber o preço",
+          "expect": {
+            "contains": ["Para agendar em Studio Exemplo"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cancelar não dispara o gatilho de agendar: vai para o menu",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "preciso cancelar",
+          "expect": {
+            "contains": ["Olá, Ana! Aqui é Studio Exemplo.", "Como posso ajudar?"],
+            "status": "waiting_input"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mensagem livre abre o menu e a opção 2 mostra os serviços",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "bom dia",
+          "expect": {
+            "contains": ["Olá, Ana! Aqui é Studio Exemplo.", "[2] Serviços e preços"],
+            "cursor": "espera-menu"
+          }
+        },
+        {
+          "say": "2",
+          "expect": {
+            "replies": [
+              "Serviços de Studio Exemplo:\n• Corte — R$ 45,00\n• Escova — R$ 60,00\n• Manicure — R$ 35,00\nPara agendar: https://flow.exemplo/b/studio-exemplo"
+            ],
+            "status": "completed",
+            "variables": {
+              "session.opcao": "2"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Opção 3 mostra horário e endereço",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "oi"
+        },
+        {
+          "say": "3",
+          "expect": {
+            "replies": ["Horário: hoje das 9h às 19h.\nEndereço: Rua das Flores, 120 — Centro."]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Opção 1 e 4 pelo menu",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "oi"
+        },
+        {
+          "say": "1",
+          "expect": {
+            "contains": ["Para agendar em Studio Exemplo"]
+          }
+        },
+        {
+          "say": "olá"
+        },
+        {
+          "say": "4",
+          "expect": {
+            "handoff": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Saudação avisa quando está fechado",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "reality": {
+        "reality.isOpen": false
+      },
+      "steps": [
+        {
+          "say": "oi",
+          "expect": {
+            "contains": [
+              "No momento estamos fechados (Abrimos amanhã às 9h.), mas posso ajudar por aqui."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resposta inválida repete o menu uma vez e depois chama a equipe",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "oi"
+        },
+        {
+          "say": "talvez",
+          "expect": {
+            "contains": ["Não entendi.", "Como posso ajudar?"],
+            "status": "waiting_input"
+          }
+        },
+        {
+          "say": "sei la",
+          "expect": {
+            "contains": ["Não entendi.", "Vou chamar alguém da equipe"],
+            "handoff": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sem resposta no menu, a conversa encerra em silêncio",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "oi"
+        },
+        {
+          "wait": 600,
+          "expect": {
+            "replies": [],
+            "status": "completed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sem nome do contato a saudação continua natural",
+      "steps": [
+        {
+          "say": "oi",
+          "expect": {
+            "contains": ["Olá! Aqui é Studio Exemplo."]
+          }
+        }
+      ]
+    },
+    {
+      "name": "A realidade muda no meio da conversa",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "steps": [
+        {
+          "say": "que horas abre?",
+          "expect": {
+            "replies": ["Estamos abertos: hoje das 9h às 19h."]
+          }
+        },
+        {
+          "say": "que horas abre?",
+          "reality": {
+            "reality.isOpen": false
+          },
+          "expect": {
+            "replies": ["No momento estamos fechados. Abrimos amanhã às 9h."]
+          }
+        }
+      ]
+    }
+  ]
+}

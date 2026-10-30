@@ -24,6 +24,16 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 
 ## Diário
 
+### 2026-10-30 — Claude — Variável de realidade e preset do Flow
+
+- Pedido do responsável: "variável de realidade do Flow", fluxos do Flow e usar o sistema como modelo em outros
+  sistemas. `PerfilDeRealidade` + namespace `reality.*` (contratos, motor, simulador, Postgres), D-011,
+  `docs/REALITY.md` (passo a passo para outro sistema).
+- `presets/flow`: perfil `flow/v1` (10 fatos), fluxo de atendimento (28 nós) e 18 cenários; roda na CI
+  (`npm run simular:flow`). O simulador achou "vocês estão abertos?" sem resposta (só havia "aberto"); corrigido.
+- Próximo passo natural: o Flow (cortai-app) implementar a função de realidade `flow/v1` a partir do motor oficial
+  (agenda, catálogo, horário) — depende de autorização no repositório do Flow.
+
 ### 2026-10-30 — Claude — Persistência e execução durável (Postgres)
 
 - `@flow-bot/store-postgres`: `migrar`, `FlowBot.publicar` (versão imutável + checksum), `receberMensagem`

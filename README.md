@@ -39,6 +39,11 @@ npm run format:check && npm run lint && npm run typecheck && npm test
 npm run schema   # regrava o JSON Schema a partir do código
 ```
 
+## Realidade e presets
+
+O fluxo lê os fatos do sistema hospedeiro pelo namespace `reality.*` (`docs/REALITY.md`). O primeiro perfil é o do
+Flow (`presets/flow`): `npm run simular:flow` roda os 18 cenários do atendimento.
+
 ## Estrutura documental
 
 - `docs/REVERSE_ENGINEERING.md` — síntese do APK e dos cinco vídeos.

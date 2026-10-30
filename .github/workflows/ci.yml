@@ -39,3 +39,4 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run simular -- examples/boas-vindas-menu.json examples/boas-vindas-menu.cenarios.json
+      - run: npm run simular:flow

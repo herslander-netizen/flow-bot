@@ -1,0 +1,497 @@
+{
+  "schemaVersion": "flow-bot/v0",
+  "reality": "flow/v1",
+  "flow": {
+    "id": "flow-atendimento",
+    "name": "Flow — atendimento por WhatsApp",
+    "timezone": "America/Sao_Paulo",
+    "status": "draft",
+    "entryNodeId": "inicio"
+  },
+  "limits": {
+    "maxStepsPerEvent": 40
+  },
+  "defaults": {
+    "ignoreAccents": true,
+    "delaySeconds": {
+      "min": 1,
+      "max": 3
+    }
+  },
+  "variables": [
+    {
+      "name": "session.opcao",
+      "type": "string"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "agendar",
+      "type": "message.text",
+      "config": {
+        "text": "Para agendar em {{reality.businessName}}, escolha o horário por aqui: {{reality.bookingLink}}\nPróximo horário livre: {{reality.nextAvailableSlot}}."
+      }
+    },
+    {
+      "id": "servicos",
+      "type": "message.text",
+      "config": {
+        "text": "Serviços de {{reality.businessName}}:{{reality.services}}\nPara agendar: {{reality.bookingLink}}"
+      }
+    },
+    {
+      "id": "aberto-agora",
+      "type": "logic.condition",
+      "config": {
+        "variable": "reality.isOpen",
+        "operator": "is_true"
+      }
+    },
+    {
+      "id": "horario-aberto",
+      "type": "message.text",
+      "config": {
+        "text": "Estamos abertos: {{reality.todayHours}}."
+      }
+    },
+    {
+      "id": "horario-fechado",
+      "type": "message.text",
+      "config": {
+        "text": "No momento estamos fechados. {{reality.nextOpening}}"
+      }
+    },
+    {
+      "id": "endereco",
+      "type": "message.text",
+      "config": {
+        "text": "Estamos em {{reality.address}}."
+      }
+    },
+    {
+      "id": "horario-e-endereco",
+      "type": "message.text",
+      "config": {
+        "text": "Horário: {{reality.todayHours}}.\nEndereço: {{reality.address}}."
+      }
+    },
+    {
+      "id": "pagamento",
+      "type": "message.text",
+      "config": {
+        "text": "Aceitamos {{reality.paymentMethods}}."
+      }
+    },
+    {
+      "id": "equipe-disponivel",
+      "type": "logic.condition",
+      "config": {
+        "variable": "reality.teamAvailable",
+        "operator": "is_true"
+      }
+    },
+    {
+      "id": "chamando-equipe",
+      "type": "message.text",
+      "config": {
+        "text": "Certo! Vou chamar alguém da equipe para falar com você por aqui."
+      }
+    },
+    {
+      "id": "equipe-depois",
+      "type": "message.text",
+      "config": {
+        "text": "A equipe não está disponível agora, mas sua mensagem fica registrada e alguém responde assim que possível."
+      }
+    },
+    {
+      "id": "encaminhar",
+      "type": "action.handoff",
+      "config": {
+        "note": "Cliente pediu atendimento da equipe"
+      }
+    },
+    {
+      "id": "fim",
+      "type": "action.end",
+      "config": {}
+    },
+    {
+      "id": "quer-agendar",
+      "type": "trigger.keyword",
+      "config": {
+        "priority": 10,
+        "match": {
+          "mode": "contains",
+          "values": ["agendar", "marcar", "agendamento", "horario livre", "vaga"],
+          "exclude": ["cancelar", "desmarcar", "remarcar"]
+        }
+      }
+    },
+    {
+      "id": "quer-precos",
+      "type": "trigger.keyword",
+      "config": {
+        "priority": 20,
+        "match": {
+          "mode": "contains",
+          "values": ["preco", "precos", "valor", "valores", "quanto custa", "servicos", "tabela"]
+        }
+      }
+    },
+    {
+      "id": "quer-horario",
+      "type": "trigger.keyword",
+      "config": {
+        "priority": 30,
+        "match": {
+          "mode": "contains",
+          "values": [
+            "horario",
+            "horarios",
+            "que horas",
+            "aberto",
+            "aberta",
+            "abertos",
+            "abertas",
+            "funcionamento",
+            "funciona",
+            "funcionam",
+            "abre",
+            "fecha"
+          ],
+          "exclude": ["cancelar", "remarcar"]
+        }
+      }
+    },
+    {
+      "id": "quer-endereco",
+      "type": "trigger.keyword",
+      "config": {
+        "priority": 40,
+        "match": {
+          "mode": "contains",
+          "values": [
+            "endereco",
+            "onde fica",
+            "localizacao",
+            "como chegar",
+            "fica onde",
+            "qual o endereco"
+          ]
+        }
+      }
+    },
+    {
+      "id": "quer-pagamento",
+      "type": "trigger.keyword",
+      "config": {
+        "priority": 50,
+        "match": {
+          "mode": "contains",
+          "values": ["pagamento", "pix", "cartao", "dinheiro"]
+        }
+      }
+    },
+    {
+      "id": "quer-equipe",
+      "type": "trigger.keyword",
+      "config": {
+        "priority": 60,
+        "match": {
+          "mode": "contains",
+          "values": ["atendente", "humano", "falar com alguem", "equipe", "pessoa"]
+        }
+      }
+    },
+    {
+      "id": "inicio",
+      "type": "trigger.message_received",
+      "config": {}
+    },
+    {
+      "id": "aberto-na-saudacao",
+      "type": "logic.condition",
+      "config": {
+        "variable": "reality.isOpen",
+        "operator": "is_true"
+      }
+    },
+    {
+      "id": "ola",
+      "type": "message.text",
+      "config": {
+        "text": "Olá, {{contact.firstName}}! Aqui é {{reality.businessName}}."
+      }
+    },
+    {
+      "id": "ola-fechado",
+      "type": "message.text",
+      "config": {
+        "text": "Olá, {{contact.firstName}}! Aqui é {{reality.businessName}}. No momento estamos fechados ({{reality.nextOpening}}), mas posso ajudar por aqui."
+      }
+    },
+    {
+      "id": "menu",
+      "type": "message.quick_replies",
+      "config": {
+        "prompt": "Como posso ajudar?",
+        "options": [
+          {
+            "value": "1",
+            "label": "Agendar"
+          },
+          {
+            "value": "2",
+            "label": "Serviços e preços"
+          },
+          {
+            "value": "3",
+            "label": "Horário e endereço"
+          },
+          {
+            "value": "4",
+            "label": "Falar com a equipe"
+          }
+        ]
+      }
+    },
+    {
+      "id": "espera-menu",
+      "type": "state.wait_for_reply",
+      "config": {
+        "timeoutSeconds": 600,
+        "saveAs": "session.opcao"
+      }
+    },
+    {
+      "id": "rota-menu",
+      "type": "logic.switch",
+      "config": {
+        "variable": "session.opcao",
+        "cases": ["1", "2", "3", "4"]
+      }
+    },
+    {
+      "id": "nao-entendi",
+      "type": "message.text",
+      "config": {
+        "text": "Não entendi. Responda com o número da opção (1 a 4)."
+      }
+    },
+    {
+      "id": "de-novo",
+      "type": "logic.goto",
+      "config": {
+        "target": "menu",
+        "maxVisits": 1
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "quer-agendar",
+      "to": "agendar",
+      "port": "next"
+    },
+    {
+      "id": "e2",
+      "from": "quer-precos",
+      "to": "servicos",
+      "port": "next"
+    },
+    {
+      "id": "e3",
+      "from": "quer-horario",
+      "to": "aberto-agora",
+      "port": "next"
+    },
+    {
+      "id": "e4",
+      "from": "quer-endereco",
+      "to": "endereco",
+      "port": "next"
+    },
+    {
+      "id": "e5",
+      "from": "quer-pagamento",
+      "to": "pagamento",
+      "port": "next"
+    },
+    {
+      "id": "e6",
+      "from": "quer-equipe",
+      "to": "equipe-disponivel",
+      "port": "next"
+    },
+    {
+      "id": "e7",
+      "from": "agendar",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e8",
+      "from": "servicos",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e9",
+      "from": "endereco",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e10",
+      "from": "pagamento",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e11",
+      "from": "horario-e-endereco",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e12",
+      "from": "aberto-agora",
+      "to": "horario-aberto",
+      "port": "true"
+    },
+    {
+      "id": "e13",
+      "from": "aberto-agora",
+      "to": "horario-fechado",
+      "port": "false"
+    },
+    {
+      "id": "e14",
+      "from": "horario-aberto",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e15",
+      "from": "horario-fechado",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e16",
+      "from": "equipe-disponivel",
+      "to": "chamando-equipe",
+      "port": "true"
+    },
+    {
+      "id": "e17",
+      "from": "equipe-disponivel",
+      "to": "equipe-depois",
+      "port": "false"
+    },
+    {
+      "id": "e18",
+      "from": "chamando-equipe",
+      "to": "encaminhar",
+      "port": "next"
+    },
+    {
+      "id": "e19",
+      "from": "equipe-depois",
+      "to": "encaminhar",
+      "port": "next"
+    },
+    {
+      "id": "e20",
+      "from": "inicio",
+      "to": "aberto-na-saudacao",
+      "port": "next"
+    },
+    {
+      "id": "e21",
+      "from": "aberto-na-saudacao",
+      "to": "ola",
+      "port": "true"
+    },
+    {
+      "id": "e22",
+      "from": "aberto-na-saudacao",
+      "to": "ola-fechado",
+      "port": "false"
+    },
+    {
+      "id": "e23",
+      "from": "ola",
+      "to": "menu",
+      "port": "next"
+    },
+    {
+      "id": "e24",
+      "from": "ola-fechado",
+      "to": "menu",
+      "port": "next"
+    },
+    {
+      "id": "e25",
+      "from": "menu",
+      "to": "espera-menu",
+      "port": "next"
+    },
+    {
+      "id": "e26",
+      "from": "espera-menu",
+      "to": "rota-menu",
+      "port": "reply"
+    },
+    {
+      "id": "e27",
+      "from": "espera-menu",
+      "to": "fim",
+      "port": "timeout"
+    },
+    {
+      "id": "e28",
+      "from": "rota-menu",
+      "to": "agendar",
+      "port": "case:1"
+    },
+    {
+      "id": "e29",
+      "from": "rota-menu",
+      "to": "servicos",
+      "port": "case:2"
+    },
+    {
+      "id": "e30",
+      "from": "rota-menu",
+      "to": "horario-e-endereco",
+      "port": "case:3"
+    },
+    {
+      "id": "e31",
+      "from": "rota-menu",
+      "to": "equipe-disponivel",
+      "port": "case:4"
+    },
+    {
+      "id": "e32",
+      "from": "rota-menu",
+      "to": "nao-entendi",
+      "port": "default"
+    },
+    {
+      "id": "e33",
+      "from": "nao-entendi",
+      "to": "de-novo",
+      "port": "next"
+    },
+    {
+      "id": "e34",
+      "from": "de-novo",
+      "to": "equipe-disponivel",
+      "port": "exhausted"
+    }
+  ]
+}

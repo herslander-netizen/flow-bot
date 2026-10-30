@@ -1,0 +1,67 @@
+{
+  "id": "flow/v1",
+  "name": "Flow — negócio de serviços",
+  "description": "Fatos que o Flow entrega ao Flow Bot a cada mensagem. Vêm do motor oficial do Flow (agenda, catálogo, horário, cadastro do negócio); o fluxo nunca inventa nenhum deles.",
+  "facts": [
+    {
+      "name": "reality.businessName",
+      "type": "string",
+      "description": "Nome do negócio, como aparece para o cliente.",
+      "example": "Studio Exemplo"
+    },
+    {
+      "name": "reality.isOpen",
+      "type": "boolean",
+      "description": "Se o negócio está aberto agora (horário da semana, horário especial e fechamentos, no fuso do negócio).",
+      "example": true
+    },
+    {
+      "name": "reality.todayHours",
+      "type": "string",
+      "description": "Horário de hoje em texto curto.",
+      "example": "hoje das 9h às 19h"
+    },
+    {
+      "name": "reality.nextOpening",
+      "type": "string",
+      "description": "Frase com a próxima abertura, para quando está fechado.",
+      "example": "Abrimos amanhã às 9h."
+    },
+    {
+      "name": "reality.nextAvailableSlot",
+      "type": "string",
+      "description": "Próximo horário livre para agendar (motor oficial de disponibilidade).",
+      "example": "hoje às 15:30"
+    },
+    {
+      "name": "reality.services",
+      "type": "list",
+      "description": "Serviços ativos com preço do catálogo, um por item.",
+      "example": ["Corte — R$ 45,00", "Escova — R$ 60,00", "Manicure — R$ 35,00"]
+    },
+    {
+      "name": "reality.address",
+      "type": "string",
+      "description": "Endereço do negócio.",
+      "example": "Rua das Flores, 120 — Centro"
+    },
+    {
+      "name": "reality.paymentMethods",
+      "type": "string",
+      "description": "Formas de pagamento aceitas, em texto.",
+      "example": "Pix, cartão e dinheiro"
+    },
+    {
+      "name": "reality.bookingLink",
+      "type": "string",
+      "description": "Link da página de agendamento do negócio.",
+      "example": "https://flow.exemplo/b/studio-exemplo"
+    },
+    {
+      "name": "reality.teamAvailable",
+      "type": "boolean",
+      "description": "Se há alguém da equipe para assumir a conversa agora.",
+      "example": true
+    }
+  ]
+}

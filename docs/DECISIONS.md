@@ -70,3 +70,13 @@ Aprovado pelo responsável pelo produto.
 **Limites conhecidos:** atraso mínimo real depende de quantas vezes o laço chama `processarVencidos`/
 `entregarPendentes`; a ordem por conversa faz uma resposta com falha segurar as seguintes até desistir; retenção dos
 eventos e do histórico ainda não definida (dados de conversa).
+
+## D-011 — Realidade como contrato com o sistema hospedeiro (30/10/2026)
+
+**Decisão:** fatos que mudam no mundo real entram só pelo namespace `reality.*`, definidos por um perfil versionado
+do hospedeiro (`flow/v1` é o primeiro) e entregues a cada evento. O fluxo declara o perfil, só lê os fatos e o
+validador confere cada um. Fato ausente fica registrado e reprova a simulação.
+
+**Motivo:** pedido do responsável pelo produto ("variável de realidade do Flow", e usar o sistema como modelo em
+outros sistemas). Separa o motor (igual para todos) do conhecimento do negócio (de cada hospedeiro) e impede respostas
+inventadas.
