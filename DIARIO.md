@@ -11,11 +11,12 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 
 ## Em andamento
 
-- Claude | 2026-10-30 | Fase 1: runtime em memória, simulador e proteção contra execução infinita | `packages/runtime/`
+- Nenhuma tarefa reservada.
 
 ## Pendências que dependem do responsável
 
-- Nenhuma no momento.
+- **Fase 3 (persistência):** escolher o banco (recomendação: Postgres, com fila na própria base, sem Redis) antes de
+  começar. Sem custo enquanto for local/teste.
 
 ## Recados
 
@@ -23,6 +24,18 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
   documento em `docs/` ou recado aqui; o Claude implementa e testa.
 
 ## Diário
+
+### 2026-10-30 — Claude — Runtime em memória e simulador (Fase 2 do roadmap / Fase 1 do prompt master)
+
+- `@flow-bot/runtime`: `compilar` (só aceita fluxo válido), `processar` (puro: sem E/S, sem relógio, sorteio com
+  semente do evento), correspondência (exato, contém, começa/termina, curinga, RegEx segura, similaridade Dice),
+  esperas com nova tentativa, atraso, webhook como ação, saltos com `maxVisits`, pausa contra repetição, atraso
+  padrão reprodutível, captura de dados (texto, número, e-mail, telefone, data).
+- Simulador por cenários JSON + `npm run simular`; o exemplo roda na CI. O simulador achou a pontuação solta com
+  variável vazia ("Olá, !"), já corrigida.
+- Testes: 93 (contratos + runtime), lint, tipos e simulação passando.
+- Limites conhecidos: mensagem que chega depois do prazo de uma espera segue pelo `timeout` e não reavalia os
+  gatilhos; capturas de RegEx vão para `session.captureN` sem declaração (o validador ainda não as conhece).
 
 ### 2026-10-30 — Claude — Licença MIT e diário
 
