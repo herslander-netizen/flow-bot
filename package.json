@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "schema": "npm run schema --workspace @flow-bot/contracts"
+    "schema": "npm run schema --workspace @flow-bot/contracts",
+    "simular": "tsc -b packages/contracts packages/runtime && node packages/runtime/bin/simular.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -1,0 +1,52 @@
+{
+  "scenarios": [
+    {
+      "name": "Cliente escolhe serviços",
+      "contact": { "firstName": "Ana" },
+      "steps": [
+        {
+          "say": "oi",
+          "expect": {
+            "contains": ["Olá, Ana!", "[2] Serviços"],
+            "status": "waiting_input",
+            "cursor": "espera"
+          }
+        },
+        {
+          "say": "2",
+          "expect": {
+            "replies": ["Nossos serviços estão na página, com preços."],
+            "status": "completed",
+            "variables": { "session.escolha": "2" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cliente pede atendimento humano",
+      "steps": [
+        { "say": "bom dia" },
+        { "say": "3", "expect": { "handoff": true, "status": "handed_off" } }
+      ]
+    },
+    {
+      "name": "Respostas inválidas acabam na equipe",
+      "steps": [
+        { "say": "oi" },
+        { "say": "banana", "expect": { "contains": ["Não reconheci", "Escolha uma opção:"] } },
+        { "say": "laranja", "expect": { "contains": ["Escolha uma opção:"] } },
+        { "say": "uva", "expect": { "handoff": true } }
+      ]
+    },
+    {
+      "name": "Cliente some e a conversa encerra no prazo",
+      "steps": [
+        { "say": "oi" },
+        {
+          "wait": 900,
+          "expect": { "replies": ["Quando quiser, é só escrever de novo."], "status": "completed" }
+        }
+      ]
+    }
+  ]
+}

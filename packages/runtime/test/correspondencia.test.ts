@@ -79,3 +79,28 @@ describe("auxiliares", () => {
     expect(similaridade("abc", "xyz")).toBe(0);
   });
 });
+
+describe("preencher", () => {
+  it("variável vazia não deixa pontuação solta", async () => {
+    const { compilar, preencher, novaSessao } = await import("../src/index.js");
+    const { readFileSync } = await import("node:fs");
+    const plano = compilar(
+      JSON.parse(
+        readFileSync(
+          new URL("../../contracts/fixtures/valid/boas-vindas-menu.json", import.meta.url),
+          "utf8",
+        ),
+      ),
+    );
+    const ctx = (firstName?: string) => ({
+      sessao: novaSessao("x"),
+      contato: { firstName },
+      textoDaMensagem: "",
+    });
+    expect(preencher("Olá, {{contact.firstName}}! Tudo bem?", plano, ctx())).toBe("Olá! Tudo bem?");
+    expect(preencher("Olá, {{contact.firstName}}! Tudo bem?", plano, ctx("Ana"))).toBe(
+      "Olá, Ana! Tudo bem?",
+    );
+    expect(preencher("Seu código é {{session.escolha}} .", plano, ctx())).toBe("Seu código é.");
+  });
+});

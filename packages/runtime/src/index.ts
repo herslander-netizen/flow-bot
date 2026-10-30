@@ -18,5 +18,12 @@ export {
   type StatusDaSessao,
   type Valor,
 } from "./sessao.js";
+export {
+  ArquivoDeCenarios,
+  Cenario,
+  simular,
+  type PassoSimulado,
+  type RelatorioDoCenario,
+} from "./simulador.js";
 export { escolherPorPeso, sorteioComSemente, type Sorteio } from "./sorteio.js";
 export { preencher, valorDaVariavel } from "./variaveis.js";

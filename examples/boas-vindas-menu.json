@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "flow-bot/v0",
+  "flow": {
+    "id": "boas-vindas-menu",
+    "name": "Boas-vindas e menu",
+    "timezone": "America/Sao_Paulo",
+    "status": "draft",
+    "entryNodeId": "inicio"
+  },
+  "limits": { "maxStepsPerEvent": 50 },
+  "variables": [{ "name": "session.escolha", "type": "string" }],
+  "nodes": [
+    { "id": "inicio", "type": "trigger.message_received", "config": {} },
+    {
+      "id": "ola",
+      "type": "message.text",
+      "config": { "text": "Olá, {{contact.firstName}}! Como podemos ajudar?" }
+    },
+    {
+      "id": "menu",
+      "type": "message.quick_replies",
+      "config": {
+        "prompt": "Escolha uma opção:",
+        "options": [
+          { "value": "1", "label": "Agendar" },
+          { "value": "2", "label": "Serviços" },
+          { "value": "3", "label": "Falar com alguém" }
+        ]
+      }
+    },
+    {
+      "id": "espera",
+      "type": "state.wait_for_reply",
+      "config": { "timeoutSeconds": 300, "maxAttempts": 2, "saveAs": "session.escolha" }
+    },
+    {
+      "id": "rota",
+      "type": "logic.switch",
+      "config": { "variable": "session.escolha", "cases": ["1", "2", "3"] }
+    },
+    {
+      "id": "agendar",
+      "type": "message.text",
+      "config": { "text": "Para agendar, use o link da nossa página." }
+    },
+    {
+      "id": "servicos",
+      "type": "message.text",
+      "config": { "text": "Nossos serviços estão na página, com preços." }
+    },
+    { "id": "humano", "type": "action.handoff", "config": { "note": "Pediu atendimento" } },
+    {
+      "id": "nao-entendi",
+      "type": "message.text",
+      "config": { "text": "Não reconheci essa opção. Digite 1, 2 ou 3." }
+    },
+    { "id": "voltar", "type": "logic.goto", "config": { "target": "menu", "maxVisits": 2 } },
+    { "id": "fim", "type": "action.end", "config": {} },
+    {
+      "id": "sem-resposta",
+      "type": "message.text",
+      "config": { "text": "Quando quiser, é só escrever de novo." }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": "inicio", "to": "ola", "port": "next" },
+    { "id": "e2", "from": "ola", "to": "menu", "port": "next" },
+    { "id": "e3", "from": "menu", "to": "espera", "port": "next" },
+    { "id": "e4", "from": "espera", "to": "rota", "port": "reply" },
+    { "id": "e5", "from": "espera", "to": "sem-resposta", "port": "timeout" },
+    { "id": "e6", "from": "rota", "to": "agendar", "port": "case:1" },
+    { "id": "e7", "from": "rota", "to": "servicos", "port": "case:2" },
+    { "id": "e8", "from": "rota", "to": "humano", "port": "case:3" },
+    { "id": "e9", "from": "rota", "to": "nao-entendi", "port": "default" },
+    { "id": "e10", "from": "nao-entendi", "to": "voltar", "port": "next" },
+    { "id": "e11", "from": "voltar", "to": "humano", "port": "exhausted" },
+    { "id": "e12", "from": "agendar", "to": "fim", "port": "next" },
+    { "id": "e13", "from": "servicos", "to": "fim", "port": "next" },
+    { "id": "e14", "from": "sem-resposta", "to": "fim", "port": "next" }
+  ]
+}

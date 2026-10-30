@@ -23,11 +23,16 @@ export function valorDaVariavel(nome: string, plano: Plano, ctx: Contexto): Valo
 }
 
 export function preencher(texto: string, plano: Plano, ctx: Contexto): string {
-  return texto
-    .replace(/\{\{\s*([^{}]*?)\s*\}\}/g, (_, nome: string) => {
-      const v = valorDaVariavel(nome, plano, ctx);
-      return v === undefined ? "" : String(v);
-    })
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  return (
+    texto
+      .replace(/\{\{\s*([^{}]*?)\s*\}\}/g, (_, nome: string) => {
+        const v = valorDaVariavel(nome, plano, ctx);
+        return v === undefined ? "" : String(v);
+      })
+      .replace(/[ \t]{2,}/g, " ")
+      // Variável vazia não deixa pontuação solta: "Olá, {{contact.firstName}}!" sem nome vira "Olá!".
+      .replace(/[ \t]*,[ \t]*(?=[!?.,;:])/g, "")
+      .replace(/[ \t]+(?=[!?.,;:])/g, "")
+      .trim()
+  );
 }
