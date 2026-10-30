@@ -5,6 +5,8 @@ export {
   TIPOS_DE_NO,
   ehTipoConhecido,
   portasDoNo,
+  type ConfigDe,
+  type Correspondencia,
   type EspecDeNo,
   type Porta,
   type TipoDeNo,

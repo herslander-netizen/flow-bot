@@ -1,0 +1,25 @@
+{
+  "name": "@flow-bot/runtime",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Runtime determin\u00edstico do Flow Bot: processa eventos sobre uma sess\u00e3o, sem E/S e sem IA.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@flow-bot/contracts": "0.0.0"
+  }
+}

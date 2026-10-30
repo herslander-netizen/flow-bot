@@ -228,6 +228,11 @@ export const CATALOGO = {
 
 export type TipoDeNo = keyof typeof CATALOGO;
 
+/** Configuração já validada de um tipo de nó. */
+export type ConfigDe<T extends TipoDeNo> = z.infer<(typeof CATALOGO)[T]["config"]>;
+
+export type Correspondencia = z.infer<typeof ConfigDeCorrespondencia>;
+
 export const TIPOS_DE_NO = Object.keys(CATALOGO) as TipoDeNo[];
 
 export function ehTipoConhecido(tipo: string): tipo is TipoDeNo {
