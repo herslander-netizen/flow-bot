@@ -132,7 +132,7 @@ describe.skipIf(!URL_DO_BANCO)("aprendizado e retenção", () => {
     c.avancarDias(60);
     await c.dizer("quanto custa?", "recente");
     c.avancarDias(31); // as primeiras têm 91 dias; a recente, 31
-    const apagados = await c.bot.limparAntigos();
+    const apagados = await c.bot.limparAntigos({ workspaceId: c.ws });
     expect(apagados["inbound_events"]).toBeGreaterThanOrEqual(3);
     const sobra = async (tabela: string) =>
       (

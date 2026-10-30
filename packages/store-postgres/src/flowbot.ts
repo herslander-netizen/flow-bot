@@ -433,7 +433,9 @@ export class FlowBot {
    * Apaga o que passou da retenção (mensagens recebidas, histórico, saídas e prazos encerrados, conversas paradas e as
    * marcas de pessoa do aprendizado). Frases anonimizadas e contadores ficam. Em lotes, para não travar o banco.
    */
-  async limparAntigos(opcoes: { lote?: number } = {}): Promise<Record<string, number>> {
+  async limparAntigos(
+    opcoes: { lote?: number; workspaceId?: string } = {},
+  ): Promise<Record<string, number>> {
     const limite = new Date(this.agora().getTime() - this.diasDeRetencao * 86_400_000);
     const lote = opcoes.lote ?? 5000;
     const alvos: [string, string, string][] = [
@@ -450,8 +452,10 @@ export class FlowBot {
       for (;;) {
         const r = await this.pool.query(
           `DELETE FROM flow_bot.${tabela} WHERE ctid IN (
-             SELECT ctid FROM flow_bot.${tabela} WHERE ${coluna} < $1 AND ${condicao} LIMIT $2)`,
-          [limite, lote],
+             SELECT ctid FROM flow_bot.${tabela}
+              WHERE ${coluna} < $1 AND ${condicao} AND ($3::text IS NULL OR workspace_id = $3)
+              LIMIT $2)`,
+          [limite, lote, opcoes.workspaceId ?? null],
         );
         total += r.rowCount ?? 0;
         if ((r.rowCount ?? 0) < lote) break;

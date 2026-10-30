@@ -26,6 +26,13 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 
 ## Diário
 
+### 2026-10-30 — Claude — Correção: CI vermelha no envio do aprendizado
+
+- A CI do commit `dd2bc08` falhou (eu tinha relatado como "rodando"): o teste da limpeza de 90 dias, com relógio
+  adiantado e rodando em paralelo, apagava o histórico de outro teste porque `limparAntigos` valia para o banco todo.
+  `limparAntigos` ganhou o filtro opcional `workspaceId` (como as filas) e o teste usa esse filtro. Suíte completa
+  estável em 6 rodadas. Em produção não havia efeito (um relógio só), mas o isolamento agora é explícito.
+
 ### 2026-10-30 — Claude — Serviço do Flow Bot com a Evolution
 
 - Plano do responsável: Flow (sistema) + Flow Bot (automação, para este e outros sistemas) + Evolution gratuita
