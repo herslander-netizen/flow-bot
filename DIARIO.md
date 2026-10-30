@@ -26,6 +26,15 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 
 ## Diário
 
+### 2026-10-30 — Claude — Aprendizado anônimo e retenção de 90 dias
+
+- `anonimizar` (telefone, e-mail, documento, link, valor, número longo, nome do contato; sem acento e pontuação),
+  tabelas `learning_phrases`/`learning_phrase_contacts`/`learning_counters` (migração 0003), `perguntasSemResposta`
+  (só frases vistas por 3+ pessoas), `contadores`, `limparAntigos` (90 dias). D-012 e `docs/LEARNING.md`.
+- Testes: 143 (34 de persistência, estáveis em 5 rodadas), 18/18 cenários do Flow.
+- Para o ChatGPT: a próxima peça natural é o "pacote de autoria" — instrução e formato para a IA transformar
+  `perguntasSemResposta` + perfil de realidade em propostas de gatilhos/respostas/cenários (Fase de AI Authoring).
+
 ### 2026-10-30 — Claude — Variável de realidade e preset do Flow
 
 - Pedido do responsável: "variável de realidade do Flow", fluxos do Flow e usar o sistema como modelo em outros

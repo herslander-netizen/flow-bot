@@ -45,6 +45,21 @@ await bot.entregarPendentes(async ({ acao, chave }) => {
 Webhook: o adaptador executa a chamada e o resultado (ok ou falha) volta para a conversa como evento, sem reenvio às
 cegas.
 
+## Aprendizado e retenção
+
+```ts
+const bot = new FlowBot({
+  pool,
+  segredoDoAprendizado: process.env.FLOW_BOT_SEGREDO,
+  diasDeRetencao: 90,
+});
+await bot.perguntasSemResposta("meu-negocio"); // frases vistas por 3+ pessoas, sem dado pessoal
+await bot.contadores("meu-negocio"); // assuntos, caminhos, motivos, encaminhamentos
+await bot.limparAntigos(); // uma vez por dia
+```
+
+Detalhes em `docs/LEARNING.md`.
+
 ## Testes
 
 Precisam de um Postgres em `DATABASE_URL` (na CI há um serviço Postgres 16). Sem a variável, a suíte é pulada.

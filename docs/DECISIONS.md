@@ -80,3 +80,12 @@ validador confere cada um. Fato ausente fica registrado e reprova a simulação.
 **Motivo:** pedido do responsável pelo produto ("variável de realidade do Flow", e usar o sistema como modelo em
 outros sistemas). Separa o motor (igual para todos) do conhecimento do negócio (de cada hospedeiro) e impede respostas
 inventadas.
+
+## D-012 — Retenção de 90 dias com aprendizado anônimo (30/10/2026)
+
+**Decisão:** mensagens, histórico e conversas paradas são apagados após 90 dias (`limparAntigos`). O aprendizado
+continua por frases anonimizadas (só exibidas quando vistas por 3+ pessoas) e contadores por dia, sem telefone, nome
+ou conversa (`docs/LEARNING.md`).
+
+**Motivo:** pedido do responsável: guardar o mínimo de dado pessoal e, ainda assim, alimentar o sistema com o que os
+clientes perguntam.
