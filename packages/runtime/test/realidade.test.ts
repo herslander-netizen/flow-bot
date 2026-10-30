@@ -99,7 +99,9 @@ describe("realidade no motor", () => {
 
   it("compilar confere os fatos contra o perfil", () => {
     const errado = structuredClone(fluxo);
-    errado.nodes[2]!.config = { text: "{{reality.inexistente}}" };
+    errado.nodes = errado.nodes.map((n) =>
+      n.id === "lista" ? { ...n, config: { text: "{{reality.inexistente}}" } } : n,
+    );
     expect(() => compilar(errado, { perfis: [perfil] })).toThrow("fato_desconhecido");
   });
 });
