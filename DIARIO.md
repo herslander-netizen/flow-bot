@@ -15,8 +15,7 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 
 ## Pendências que dependem do responsável
 
-- **Fase 3 (persistência):** escolher o banco (recomendação: Postgres, com fila na própria base, sem Redis) antes de
-  começar. Sem custo enquanto for local/teste.
+- **Retenção de dados:** por quanto tempo guardar mensagens recebidas e histórico de decisões (sugestão: 90 dias).
 
 ## Recados
 
@@ -24,6 +23,15 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
   documento em `docs/` ou recado aqui; o Claude implementa e testa.
 
 ## Diário
+
+### 2026-10-30 — Claude — Persistência e execução durável (Postgres)
+
+- `@flow-bot/store-postgres`: `migrar`, `FlowBot.publicar` (versão imutável + checksum), `receberMensagem`
+  (idempotente, trava por conversa, tudo numa transação), `processarVencidos` (prazos duráveis), `entregarPendentes`
+  (caixa de saída com idempotência, novas tentativas e ordem por conversa), `cancelarPendentes`, `historico`.
+- Os testes acharam um defeito real: o `RETURNING` do Postgres não garante ordem e duas respostas podiam sair
+  trocadas; agora a entrega respeita a ordem por conversa (teste dedicado).
+- Testes: 108 com Postgres (15 de persistência, estáveis em 10 rodadas seguidas); CI ganhou serviço Postgres 16.
 
 ### 2026-10-30 — Claude — Runtime em memória e simulador (Fase 2 do roadmap / Fase 1 do prompt master)
 

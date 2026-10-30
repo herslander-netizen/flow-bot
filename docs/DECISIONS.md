@@ -57,3 +57,16 @@ devolve a nova sessão, as ações a executar e o rastro da decisão, sem E/S, r
 vem no evento e o sorteio usa semente registrada. Persistência, fila e canais ficam em camadas de fora (Fase 2).
 
 **Motivo:** reprodutível em testes e no simulador; a mesma entrada sempre gera a mesma saída; fácil de auditar.
+
+## D-010 — Postgres para persistência e fila (30/10/2026)
+
+**Decisão:** `@flow-bot/store-postgres` guarda versões, conversas, eventos, prazos, caixa de saída e histórico no
+schema `flow_bot` de um Postgres. A fila de prazos e de entregas é a própria base (`FOR UPDATE SKIP LOCKED`), sem
+Redis ou serviço extra. Testes rodam contra Postgres real (local ou serviço da CI).
+
+**Motivo:** um serviço só, transações que juntam estado e efeitos (tudo ou nada), custo zero para desenvolver.
+Aprovado pelo responsável pelo produto.
+
+**Limites conhecidos:** atraso mínimo real depende de quantas vezes o laço chama `processarVencidos`/
+`entregarPendentes`; a ordem por conversa faz uma resposta com falha segurar as seguintes até desistir; retenção dos
+eventos e do histórico ainda não definida (dados de conversa).

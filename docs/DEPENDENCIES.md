@@ -1,7 +1,6 @@
 # Dependências e licenças (fixadas em 30/10/2026)
 
-Versões exatas, publicadas há pelo menos duas semanas na data da escolha. O runtime de produção ainda não existe;
-só `zod` é dependência de execução (do pacote de contratos).
+Versões exatas, publicadas há pelo menos duas semanas na data da escolha. Dependências de execução: `zod` e `pg`.
 
 | Pacote            | Versão  | Licença    | Uso                                                                        |
 | ----------------- | ------- | ---------- | -------------------------------------------------------------------------- |
@@ -15,7 +14,7 @@ só `zod` é dependência de execução (do pacote de contratos).
 | prettier          | 3.9.10  | MIT        | Formatação (dev)                                                           |
 | @types/node       | 26.6.5  | MIT        | Tipos do Node (dev)                                                        |
 
-Avaliadas e **não instaladas** ainda: `@xyflow/react` 12.12.0 (MIT, editor — Fase 4), `xstate` 5.33.3 (MIT, sessão —
+Avaliadas e **não instaladas**: `@electric-sql/pglite` 0.5.10 (Apache-2.0; dispensado, os testes usam Postgres real); ainda não instaladas: `@xyflow/react` 12.12.0 (MIT, editor — Fase 4), `xstate` 5.33.3 (MIT, sessão —
 Fase 2).
 
 Observação de ambiente: o `npm install` do npm 10.9 falhou ao resolver dependências opcionais (`edgesOut`); o
