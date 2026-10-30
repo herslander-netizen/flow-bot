@@ -8,6 +8,8 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 - 2026-10-30: licença **MIT** (D-007).
 - 2026-10-30: a fundação `f0dee45` é a base oficial (D-008); nada de projeto paralelo.
 - 2026-10-30: IA só prepara e testa configurações; o runtime nunca chama IA (D-001).
+- 2026-10-30: **retenção de 90 dias** para mensagens recebidas e histórico de decisões; o aprendizado continua por
+  agregados anônimos (perguntas sem resposta, assuntos, escolhas de menu), sem telefone nem nome.
 
 ## Em andamento
 
@@ -15,7 +17,7 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 
 ## Pendências que dependem do responsável
 
-- **Retenção de dados:** por quanto tempo guardar mensagens recebidas e histórico de decisões (sugestão: 90 dias).
+- Nenhuma no momento.
 
 ## Recados
 
