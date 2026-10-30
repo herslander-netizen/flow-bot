@@ -1,0 +1,77 @@
+# Flow Bot + Evolution API v2 (WhatsApp gratuito, hospedado por você) num servidor só.
+# Nenhum segredo neste arquivo: tudo vem do .env ao lado (copie de .env.example).
+services:
+  flow-bot:
+    build: ..
+    restart: always
+    depends_on: [postgres]
+    ports:
+      - "8081:8080"
+    environment:
+      DATABASE_URL: postgresql://evolution:${POSTGRES_PASSWORD}@postgres:5432/flowbot
+      EVOLUTION_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_WEBHOOK_SECRET: ${FLOW_BOT_WEBHOOK_SECRET}
+      FLOW_BOT_SEGREDO: ${FLOW_BOT_SEGREDO}
+      FLOW_BOT_WORKSPACES: /config/workspaces.json
+      # Tokens que o Flow Bot envia aos seus sistemas (um por sistema, nomeado em workspaces.json).
+      TOKEN_FLOW: ${TOKEN_FLOW}
+    volumes:
+      - ./workspaces.json:/config/workspaces.json:ro
+
+  evolution:
+    image: atendai/evolution-api:v2.2.3
+    restart: always
+    depends_on: [postgres, redis]
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_URL: ${EVOLUTION_SERVER_URL}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      LANGUAGE: pt-BR
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      CONFIG_SESSION_PHONE_CLIENT: Flow
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      # O webhook de cada instância é ligado pelo comando `ligar-webhook` (segredo no cabeçalho).
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${POSTGRES_PASSWORD}@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: flow
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: "false"
+      LOG_LEVEL: ERROR,WARN
+    volumes:
+      - evolution_instances:/evolution/instances
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Cria o banco do Flow Bot no primeiro start.
+      - ./criar-banco-flowbot.sql:/docker-entrypoint-initdb.d/10-flowbot.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+volumes:
+  evolution_instances:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,12 @@
+{
+  "workspaces": [
+    {
+      "id": "studio-exemplo",
+      "instance": "flow-studio-exemplo",
+      "flowId": "flow-atendimento",
+      "realityUrl": "https://seu-sistema.exemplo/api/flow-bot/realidade",
+      "handoffUrl": "https://seu-sistema.exemplo/api/flow-bot/equipe",
+      "tokenEnv": "TOKEN_FLOW"
+    }
+  ]
+}

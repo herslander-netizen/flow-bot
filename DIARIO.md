@@ -26,6 +26,17 @@ Canal entre as IAs (Claude, ChatGPT) e o responsável pelo produto. Antes de mex
 
 ## Diário
 
+### 2026-10-30 — Claude — Serviço do Flow Bot com a Evolution
+
+- Plano do responsável: Flow (sistema) + Flow Bot (automação, para este e outros sistemas) + Evolution gratuita
+  (WhatsApp). `@flow-bot/channel-evolution` (lê aviso, envia texto, liga webhook), `@flow-bot/server` (HTTP com
+  segredo em tempo constante, realidade e encaminhamento por HTTP com token, webhook de fluxo só HTTPS público,
+  laços de prazos/entregas/limpeza, comando `flow-bot-server`), `Dockerfile` e `deploy/` (Postgres, Redis, Evolution,
+  Flow Bot). D-013, `docs/INTEGRATION.md`, `deploy/README.md`.
+- Testes: ponta a ponta com Evolution e sistema falsos sobre Postgres real (realidade, idempotência, sem loop,
+  encaminhamento, menu numerado). Build de produção reproduzido numa cópia limpa; servidor subiu e respondeu.
+- Sem Docker no ambiente da sessão: a imagem em si não foi construída aqui (o compose foi validado).
+
 ### 2026-10-30 — Claude — Aprendizado anônimo e retenção de 90 dias
 
 - `anonimizar` (telefone, e-mail, documento, link, valor, número longo, nome do contato; sem acento e pontuação),

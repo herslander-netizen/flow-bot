@@ -2,16 +2,16 @@
 
 ## Situação (30/10/2026)
 
-| Fase                                    | Situação                                               |
-| --------------------------------------- | ------------------------------------------------------ |
-| 0 — Fundação e auditoria                | Concluída (`f0dee45`, licença MIT)                     |
-| 1 — Contratos e DSL                     | Concluída na fundação (schema, validador, JSON Schema) |
-| 2 — Runtime em memória                  | **Em andamento** (inclui simulador e limite de passos) |
-| 3 — Persistência e execução durável     | A fazer                                                |
-| 4 — Editor visual e simulador visual    | A fazer                                                |
-| 5 — Adapter de canal                    | A fazer                                                |
-| 6 — AI Authoring externo                | A fazer                                                |
-| 7 — Futuro (integração com o Flow SaaS) | A fazer                                                |
+| Fase                                    | Situação                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| 0 — Fundação e auditoria                | Concluída (`f0dee45`, licença MIT)                                        |
+| 1 — Contratos e DSL                     | Concluída na fundação (schema, validador, JSON Schema)                    |
+| 2 — Runtime em memória                  | **Em andamento** (inclui simulador e limite de passos)                    |
+| 3 — Persistência e execução durável     | A fazer                                                                   |
+| 4 — Editor visual e simulador visual    | A fazer                                                                   |
+| 5 — Adapter de canal                    | **Concluída** para a Evolution (`channel-evolution`, `server`, `deploy/`) |
+| 6 — AI Authoring externo                | A fazer                                                                   |
+| 7 — Futuro (integração com o Flow SaaS) | A fazer                                                                   |
 
 ## Fase 0 — Fundação e auditoria
 

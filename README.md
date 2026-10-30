@@ -39,6 +39,20 @@ npm run format:check && npm run lint && npm run typecheck && npm test
 npm run schema   # regrava o JSON Schema a partir do código
 ```
 
+## Como fica no ar
+
+`@flow-bot/server` é o serviço: recebe o WhatsApp pela Evolution (`@flow-bot/channel-evolution`), pergunta a
+realidade ao seu sistema por HTTP e responde. Qualquer sistema se liga implementando dois endereços
+(`docs/INTEGRATION.md`); instalação com Docker em `deploy/README.md`.
+
+| Pacote                        | Papel                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| `@flow-bot/contracts`         | Formato do fluxo, perfil de realidade, validador, JSON Schema                     |
+| `@flow-bot/runtime`           | Motor determinístico e simulador                                                  |
+| `@flow-bot/store-postgres`    | Persistência, filas, idempotência, aprendizado, retenção                          |
+| `@flow-bot/channel-evolution` | WhatsApp pela Evolution API v2                                                    |
+| `@flow-bot/server`            | Serviço HTTP, laços, ligações com o sistema hospedeiro, comando `flow-bot-server` |
+
 ## Realidade e presets
 
 O fluxo lê os fatos do sistema hospedeiro pelo namespace `reality.*` (`docs/REALITY.md`). O primeiro perfil é o do

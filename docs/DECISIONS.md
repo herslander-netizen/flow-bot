@@ -89,3 +89,13 @@ ou conversa (`docs/LEARNING.md`).
 
 **Motivo:** pedido do responsável: guardar o mínimo de dado pessoal e, ainda assim, alimentar o sistema com o que os
 clientes perguntam.
+
+## D-013 — Serviço separado, Evolution como canal principal (30/10/2026)
+
+**Decisão:** o Flow Bot roda como serviço próprio (`@flow-bot/server`). Sistemas hospedeiros (o Flow e os próximos)
+se ligam por dois endereços HTTP (realidade e encaminhamento), sem importar o motor. O WhatsApp chega pela Evolution
+API v2 gratuita, hospedada pelo responsável (`@flow-bot/channel-evolution`); outras APIs entram como outros pacotes
+`channel-*`. Instalação com Docker (`deploy/`).
+
+**Motivo:** plano do responsável: um sistema de automação para o Flow e para outros sistemas, com conexão gratuita
+ao WhatsApp e sem custo de software.
