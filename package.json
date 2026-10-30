@@ -28,5 +28,5 @@
     "typescript-eslint": "8.71.2",
     "vitest": "4.1.12"
   },
-  "license": "UNLICENSED"
+  "license": "MIT"
 }

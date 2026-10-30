@@ -1,4 +1,0 @@
-A licença do código original do Flow Bot ainda não foi aplicada.
-
-Recomendação inicial: MIT.
-A escolha depende da intenção do proprietário sobre reutilização, distribuição e contribuições públicas. Não publicar código como “open source” sem licença explícita.

@@ -36,6 +36,24 @@
 
 **Motivo:** evoluir o motor sem risco ao sistema em produção e sem alterar o repositório atual do Flow.
 
-## D-007 — Licença do repositório próprio ainda não fixada
+## D-007 — Licença MIT (decidida em 30/10/2026)
 
-**Recomendação:** MIT para código original, desde que o responsável confirme a intenção de permitir reutilização e distribuição ampla. A licença final deve ser adicionada antes da publicação pública do código.
+**Decisão:** o código original do Flow Bot é MIT (`LICENSE`). Avisos de copyright e licenças de dependências e de
+código de terceiros reaproveitado continuam preservados.
+
+**Motivo:** permitir reutilização ampla, inclusive pelo Flow SaaS no futuro, sem atrito. Confirmado pelo responsável
+pelo produto.
+
+## D-008 — Fundação adotada como base oficial (30/10/2026)
+
+**Decisão:** a fundação publicada no commit `f0dee45` (contratos `flow-bot/v0`, validador, JSON Schema, CI) é a base
+oficial. O "Flow_Bot_Starter_0.1.0.zip" citado em instruções não foi encontrado; se aparecer, o que tiver de útil
+entra nesta base em commits pequenos, sem criar projeto paralelo.
+
+## D-009 — Runtime puro e determinístico
+
+**Decisão:** `@flow-bot/runtime` processa um evento (mensagem, fim de prazo, resultado de webhook) sobre uma sessão e
+devolve a nova sessão, as ações a executar e o rastro da decisão, sem E/S, relógio ou aleatoriedade própria: o tempo
+vem no evento e o sorteio usa semente registrada. Persistência, fila e canais ficam em camadas de fora (Fase 2).
+
+**Motivo:** reprodutível em testes e no simulador; a mesma entrada sempre gera a mesma saída; fácil de auditar.

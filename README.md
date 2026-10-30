@@ -56,8 +56,8 @@ npm run schema   # regrava o JSON Schema a partir do código
 
 ## Repositório pretendido
 
-`herslander-netizen/flow-bot` (nome sugerido; ainda precisa ser criado no GitHub).
+https://github.com/herslander-netizen/flow-bot
 
-## Licença do projeto
+## Licença
 
-A licença do Flow Bot ainda precisa ser confirmada antes da publicação. Recomendação inicial: MIT para o código original do projeto, mantendo os avisos de copyright e licenças de todas as dependências. Ver `docs/GITHUB_REFERENCES.md` e `docs/DECISIONS.md`.
+MIT (`LICENSE`). Avisos de copyright e licenças das dependências são preservados (`docs/DEPENDENCIES.md`).
