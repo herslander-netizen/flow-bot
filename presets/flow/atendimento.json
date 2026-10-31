@@ -331,13 +331,28 @@
       "config": {
         "text": "Horário: {{reality.todayHours}}."
       }
+    },
+    {
+      "id": "tem-proximo-horario",
+      "type": "logic.condition",
+      "config": {
+        "variable": "reality.nextAvailableSlot",
+        "operator": "is_set"
+      }
+    },
+    {
+      "id": "agendar-sem-proximo",
+      "type": "message.text",
+      "config": {
+        "text": "Para agendar em {{reality.businessName}}, escolha o horário por aqui: {{reality.bookingLink}}"
+      }
     }
   ],
   "edges": [
     {
       "id": "e1",
       "from": "quer-agendar",
-      "to": "agendar",
+      "to": "tem-proximo-horario",
       "port": "next"
     },
     {
@@ -499,7 +514,7 @@
     {
       "id": "e28",
       "from": "rota-menu",
-      "to": "agendar",
+      "to": "tem-proximo-horario",
       "port": "case:1"
     },
     {
@@ -589,6 +604,24 @@
     {
       "id": "e43",
       "from": "horario-sem-endereco",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e44",
+      "from": "tem-proximo-horario",
+      "to": "agendar",
+      "port": "true"
+    },
+    {
+      "id": "e45",
+      "from": "tem-proximo-horario",
+      "to": "agendar-sem-proximo",
+      "port": "false"
+    },
+    {
+      "id": "e46",
+      "from": "agendar-sem-proximo",
       "to": "fim",
       "port": "next"
     }

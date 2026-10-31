@@ -358,6 +358,26 @@
           }
         }
       ]
+    },
+    {
+      "name": "Sem próximo horário calculado: manda o link sem frase vazia",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "reality": {
+        "reality.nextAvailableSlot": ""
+      },
+      "steps": [
+        {
+          "say": "Quero agendar",
+          "expect": {
+            "replies": [
+              "Para agendar em Studio Exemplo, escolha o horário por aqui: https://flow.exemplo/b/studio-exemplo"
+            ],
+            "status": "completed"
+          }
+        }
+      ]
     }
   ]
 }
