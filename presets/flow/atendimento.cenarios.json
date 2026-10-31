@@ -320,6 +320,44 @@
           }
         }
       ]
+    },
+    {
+      "name": "Sem endereço cadastrado: promete confirmar com a equipe, sem frase vazia",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "reality": {
+        "reality.address": ""
+      },
+      "steps": [
+        {
+          "say": "Onde fica?",
+          "expect": {
+            "replies": ["Vou confirmar com a equipe o endereço certinho e já te passo por aqui."],
+            "status": "completed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sem formas de pagamento cadastradas: promete confirmar com a equipe",
+      "contact": {
+        "firstName": "Ana"
+      },
+      "reality": {
+        "reality.paymentMethods": ""
+      },
+      "steps": [
+        {
+          "say": "Aceita pix?",
+          "expect": {
+            "replies": [
+              "Vou confirmar com a equipe as formas de pagamento e já te passo por aqui."
+            ],
+            "status": "completed"
+          }
+        }
+      ]
     }
   ]
 }

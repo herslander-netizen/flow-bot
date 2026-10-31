@@ -286,6 +286,51 @@
         "target": "menu",
         "maxVisits": 1
       }
+    },
+    {
+      "id": "tem-endereco",
+      "type": "logic.condition",
+      "config": {
+        "variable": "reality.address",
+        "operator": "is_set"
+      }
+    },
+    {
+      "id": "sem-endereco",
+      "type": "message.text",
+      "config": {
+        "text": "Vou confirmar com a equipe o endereço certinho e já te passo por aqui."
+      }
+    },
+    {
+      "id": "tem-pagamento",
+      "type": "logic.condition",
+      "config": {
+        "variable": "reality.paymentMethods",
+        "operator": "is_set"
+      }
+    },
+    {
+      "id": "sem-pagamento",
+      "type": "message.text",
+      "config": {
+        "text": "Vou confirmar com a equipe as formas de pagamento e já te passo por aqui."
+      }
+    },
+    {
+      "id": "tem-endereco-menu",
+      "type": "logic.condition",
+      "config": {
+        "variable": "reality.address",
+        "operator": "is_set"
+      }
+    },
+    {
+      "id": "horario-sem-endereco",
+      "type": "message.text",
+      "config": {
+        "text": "Horário: {{reality.todayHours}}."
+      }
     }
   ],
   "edges": [
@@ -310,13 +355,13 @@
     {
       "id": "e4",
       "from": "quer-endereco",
-      "to": "endereco",
+      "to": "tem-endereco",
       "port": "next"
     },
     {
       "id": "e5",
       "from": "quer-pagamento",
-      "to": "pagamento",
+      "to": "tem-pagamento",
       "port": "next"
     },
     {
@@ -466,7 +511,7 @@
     {
       "id": "e30",
       "from": "rota-menu",
-      "to": "horario-e-endereco",
+      "to": "tem-endereco-menu",
       "port": "case:3"
     },
     {
@@ -492,6 +537,60 @@
       "from": "de-novo",
       "to": "equipe-disponivel",
       "port": "exhausted"
+    },
+    {
+      "id": "e35",
+      "from": "tem-endereco",
+      "to": "endereco",
+      "port": "true"
+    },
+    {
+      "id": "e36",
+      "from": "tem-endereco",
+      "to": "sem-endereco",
+      "port": "false"
+    },
+    {
+      "id": "e37",
+      "from": "sem-endereco",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e38",
+      "from": "tem-pagamento",
+      "to": "pagamento",
+      "port": "true"
+    },
+    {
+      "id": "e39",
+      "from": "tem-pagamento",
+      "to": "sem-pagamento",
+      "port": "false"
+    },
+    {
+      "id": "e40",
+      "from": "sem-pagamento",
+      "to": "fim",
+      "port": "next"
+    },
+    {
+      "id": "e41",
+      "from": "tem-endereco-menu",
+      "to": "horario-e-endereco",
+      "port": "true"
+    },
+    {
+      "id": "e42",
+      "from": "tem-endereco-menu",
+      "to": "horario-sem-endereco",
+      "port": "false"
+    },
+    {
+      "id": "e43",
+      "from": "horario-sem-endereco",
+      "to": "fim",
+      "port": "next"
     }
   ]
 }
