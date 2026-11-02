@@ -187,7 +187,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
   let n = 0;
   const avisar = (
     texto: string,
-    opcoes: { segredo?: string; fromMe?: boolean; id?: string } = {},
+    opcoes: { segredo?: string; fromMe?: boolean; id?: string; telefone?: string } = {},
   ) =>
     fetch(`${servico.url}/webhooks/evolution`, {
       method: "POST",
@@ -200,7 +200,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
         instance: "flow-studio",
         data: {
           key: {
-            remoteJid: "5582999990000@s.whatsapp.net",
+            remoteJid: `${opcoes.telefone ?? "5582999990000"}@s.whatsapp.net`,
             fromMe: opcoes.fromMe ?? false,
             id: opcoes.id ?? `in-${++n}`,
           },
@@ -258,7 +258,8 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
   });
 
   it("menu sai como lista numerada", async () => {
-    await avisar("bom dia");
+    // Conversa isolada: o teste de handoff anterior mantém a sessão sob atendimento humano.
+    await avisar("bom dia", { telefone: "5582888880000" });
     await entregar();
     expect(enviados.at(-1)?.texto).toBe(
       "Como posso ajudar?\n1. Agendar\n2. Serviços e preços\n3. Horário e endereço\n4. Falar com a equipe",
