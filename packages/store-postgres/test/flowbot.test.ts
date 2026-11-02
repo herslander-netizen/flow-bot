@@ -272,6 +272,40 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     ]);
   });
 
+  it("mantém o bot pausado após handoff até a retomada explícita", async () => {
+    const c = cenario();
+    await c.bot.publicar(c.ws, menu());
+    await c.dizer("oi");
+    await c.dizer("3");
+
+    const antes = await c.bot.sessao(c.ws, "c1");
+    expect(antes?.session.status).toBe("handed_off");
+    const ignorada = await c.dizer("Ainda preciso de ajuda");
+    expect(ignorada).toMatchObject({
+      duplicado: false,
+      status: "handed_off",
+      motivo: "atendimento_humano",
+      acoes: [],
+    });
+    expect(await c.bot.sessao(c.ws, "c1")).toMatchObject({
+      revision: antes?.revision + 1,
+      session: { status: "handed_off" },
+    });
+
+    expect(await c.bot.retomarAtendimento(c.ws, "c1")).toBe(true);
+    expect(await c.bot.retomarAtendimento(c.ws, "c1")).toBe(false);
+    const retomada = await c.dizer("Olá, voltei");
+    expect(retomada.status).toBe("waiting_input");
+  });
+
+  it("não retoma conversa inexistente ou que não foi encaminhada", async () => {
+    const c = cenario();
+    await c.bot.publicar(c.ws, menu());
+    await c.dizer("oi");
+    expect(await c.bot.retomarAtendimento(c.ws, "nao-existe")).toBe(false);
+    expect(await c.bot.retomarAtendimento(c.ws, "c1")).toBe(false);
+  });
+
   it("webhook: o resultado da entrega volta para a conversa", async () => {
     const c = cenario();
     const doc = {

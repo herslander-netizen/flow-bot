@@ -78,6 +78,18 @@ describe("menu de boas-vindas", () => {
     expect(c.sessao.status).toBe("handed_off");
   });
 
+  it("não volta a responder enquanto a conversa está com a equipe", () => {
+    const c = conversa(fixture("boas-vindas-menu.json"));
+    c.dizer("oi");
+    c.dizer("3");
+    const mensagensAntes = c.sessao.mensagens;
+    const r = c.dizer("Olá, ainda preciso de ajuda", 10_000);
+    expect(r.motivo).toBe("atendimento_humano");
+    expect(r.acoes).toEqual([]);
+    expect(c.sessao.status).toBe("handed_off");
+    expect(c.sessao.mensagens).toBe(mensagensAntes);
+  });
+
   it("resposta inválida volta ao menu até o limite do salto e depois encaminha", () => {
     const c = conversa(fixture("boas-vindas-menu.json"));
     c.dizer("oi");

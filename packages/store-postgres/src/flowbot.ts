@@ -344,6 +344,37 @@ export class FlowBot {
     }
   }
 
+  /**
+   * Devolve ao bot uma conversa que estava sob atendimento humano.
+   * A autorização de quem pode chamar este método pertence à camada autenticada do servidor.
+   */
+  async retomarAtendimento(workspaceId: string, conversationKey: string): Promise<boolean> {
+    return emTransacao(this.pool, async (c) => {
+      const r = await c.query<LinhaDeConversa>(
+        `SELECT flow_id, flow_version, session, revision FROM flow_bot.conversations
+          WHERE workspace_id = $1 AND conversation_key = $2 FOR UPDATE`,
+        [workspaceId, conversationKey],
+      );
+      const linha = r.rows[0];
+      if (!linha || linha.session.status !== "handed_off") return false;
+
+      const sessao: Sessao = {
+        ...linha.session,
+        status: "new",
+        cursor: null,
+        prazo: null,
+        tentativas: 0,
+      };
+      await c.query(
+        `UPDATE flow_bot.conversations
+            SET session = $3, revision = revision + 1, updated_at = $4
+          WHERE workspace_id = $1 AND conversation_key = $2`,
+        [workspaceId, conversationKey, JSON.stringify(sessao), this.agora()],
+      );
+      return true;
+    });
+  }
+
   /** Cancela respostas e prazos ainda não executados de uma conversa (ex.: atendente assumiu). */
   async cancelarPendentes(
     workspaceId: string,
