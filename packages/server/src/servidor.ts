@@ -2,7 +2,7 @@
  * Servidor HTTP do Flow Bot (só `node:http`, sem framework):
  * - `POST /webhooks/evolution`: aviso da Evolution, autenticado pelo segredo (cabeçalho `x-webhook-secret` ou
  *   `apikey`, comparado em tempo constante); corpo até 1 MB; negócio sempre pela instância, nunca pelo corpo;
- * - `GET /health`: banco respondendo.
+ * - `POST /workspaces/:id/conversations/:key/resume`: retomada autenticada por credencial do workspace;\n * - `GET /health`: banco respondendo.
  * Os laços de prazos, entregas e limpeza rodam no mesmo processo (`iniciarLacos`).
  */
 import { timingSafeEqual } from "node:crypto";
