@@ -268,6 +268,23 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
       conversationKey: "5582999990000",
       note: "Cliente pediu atendimento da equipe",
     });
+
+    const urlRetomada = `${servico.url}/workspaces/${ws}/conversations/5582999990000/resume`;
+    expect((await fetch(urlRetomada, { method: "POST" })).status).toBe(401);
+    expect(
+      (
+        await fetch(urlRetomada, {
+          method: "POST",
+          headers: { authorization: "Bearer token-do-sistema" },
+        })
+      ).status,
+    ).toBe(401);
+    const retomada = await fetch(urlRetomada, {
+      method: "POST",
+      headers: { authorization: "Bearer token-exclusivo-retomada" },
+    });
+    expect(retomada.status).toBe(200);
+    expect(await retomada.json()).toEqual({ ok: true, retomada: true });
   });
 
   it("menu sai como lista numerada", async () => {
