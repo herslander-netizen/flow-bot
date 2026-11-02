@@ -50,13 +50,24 @@ describe("configuração e segurança", () => {
     EVOLUTION_API_KEY: "k",
     EVOLUTION_WEBHOOK_SECRET: SEGREDO,
     TOKEN_STUDIO: "t",
+    TOKEN_RETOMADA_STUDIO: "retomar-studio",
   };
   const ws = {
-    workspaces: [{ id: "studio", instance: "flow-studio", flowId: "f", tokenEnv: "TOKEN_STUDIO" }],
+    workspaces: [
+      {
+        id: "studio",
+        instance: "flow-studio",
+        flowId: "f",
+        tokenEnv: "TOKEN_STUDIO",
+        resumeTokenEnv: "TOKEN_RETOMADA_STUDIO",
+      },
+    ],
   };
 
-  it("carrega e lê os tokens do ambiente", () => {
-    expect(carregarConfig(env, ws).tokens.get("studio")).toBe("t");
+  it("carrega credenciais independentes para retomada", () => {
+    const cfg = carregarConfig(env, ws);
+    expect(cfg.tokens.get("studio")).toBe("t");
+    expect(cfg.resumeTokens.get("studio")).toBe("retomar-studio");
   });
   it("recusa segredo curto, variável ausente e instância repetida", () => {
     expect(() => carregarConfig({ ...env, EVOLUTION_WEBHOOK_SECRET: "curto" }, ws)).toThrow(
@@ -139,6 +150,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
         EVOLUTION_API_KEY: "chave-evolution",
         EVOLUTION_WEBHOOK_SECRET: SEGREDO,
         TOKEN_SISTEMA: "token-do-sistema",
+        TOKEN_RETOMADA: "token-exclusivo-retomada",
       },
       {
         workspaces: [
@@ -149,6 +161,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
             realityUrl: `${sistema.url}/flow-bot/realidade`,
             handoffUrl: `${sistema.url}/flow-bot/equipe`,
             tokenEnv: "TOKEN_SISTEMA",
+            resumeTokenEnv: "TOKEN_RETOMADA",
           },
         ],
       },
@@ -255,6 +268,23 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
       conversationKey: "5582999990000",
       note: "Cliente pediu atendimento da equipe",
     });
+
+    const urlRetomada = `${servico.url}/workspaces/${ws}/conversations/5582999990000/resume`;
+    expect((await fetch(urlRetomada, { method: "POST" })).status).toBe(401);
+    expect(
+      (
+        await fetch(urlRetomada, {
+          method: "POST",
+          headers: { authorization: "Bearer token-do-sistema" },
+        })
+      ).status,
+    ).toBe(401);
+    const retomada = await fetch(urlRetomada, {
+      method: "POST",
+      headers: { authorization: "Bearer token-exclusivo-retomada" },
+    });
+    expect(retomada.status).toBe(200);
+    expect(await retomada.json()).toEqual({ ok: true, retomada: true });
   });
 
   it("menu sai como lista numerada", async () => {
