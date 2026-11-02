@@ -62,16 +62,29 @@ export function criarServidor(p: {
         /^\/workspaces\/([^/]+)\/conversations\/([^/]+)\/resume$/,
       );
       if (req.method === "POST" && rotaRetomada) {
-        const workspaceId = decodeURIComponent(rotaRetomada[1] ?? "");
-        const conversationKey = decodeURIComponent(rotaRetomada[2] ?? "");
+        let workspaceId: string;
+        let conversationKey: string;
+        try {
+          workspaceId = decodeURIComponent(rotaRetomada[1] ?? "");
+          conversationKey = decodeURIComponent(rotaRetomada[2] ?? "");
+        } catch {
+          return responder(res, 400, { erro: "caminho_invalido" });
+        }
+        if (
+          !workspaceId ||
+          workspaceId.length > 120 ||
+          workspaceId.includes("/") ||
+          !conversationKey ||
+          conversationKey.length > 200 ||
+          conversationKey.includes("/")
+        )
+          return responder(res, 400, { erro: "caminho_invalido" });
         const token = p.cfg.resumeTokens.get(workspaceId);
         if (!token) return responder(res, 404, { erro: "nao_encontrado" });
         const header = String(req.headers.authorization ?? "");
         const recebido = header.startsWith("Bearer ") ? header.slice(7) : "";
         if (!recebido || !igual(recebido, token))
           return responder(res, 401, { erro: "nao_autorizado" });
-        if (!workspaceId || workspaceId.length > 120 || !conversationKey || conversationKey.length > 200)
-          return responder(res, 400, { erro: "caminho_invalido" });
         const retomada = await p.bot.retomarAtendimento(workspaceId, conversationKey);
         return responder(res, 200, { ok: true, retomada });
       }
