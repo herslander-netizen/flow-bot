@@ -276,12 +276,17 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     const c = cenario();
     await c.bot.publicar(c.ws, menu());
     await c.dizer("oi");
+    const saidasAntesDoHandoff = await pool.query<{ id: string }>(
+      "SELECT id FROM flow_bot.outbound WHERE workspace_id = $1 ORDER BY id",
+      [c.ws],
+    );
     await c.dizer("3");
 
     const saidasAposHandoff = await pool.query(
-      "SELECT status FROM flow_bot.outbound WHERE workspace_id = $1 ORDER BY id",
-      [c.ws],
+      "SELECT status FROM flow_bot.outbound WHERE workspace_id = $1 AND id = ANY($2::bigint[])",
+      [c.ws, saidasAntesDoHandoff.rows.map((linha) => linha.id)],
     );
+    expect(saidasAposHandoff.rows).toHaveLength(saidasAntesDoHandoff.rows.length);
     expect(saidasAposHandoff.rows.every((linha) => linha.status === "cancelled")).toBe(true);
 
     const antes = await c.bot.sessao(c.ws, "c1");
@@ -370,21 +375,23 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
   it("limpa resultados de webhook concluídos por prazo e workspace, preservando pendentes", async () => {
     const c = cenario();
     const antigo = new Date("2026-01-01T00:00:00Z");
+    const idBase = Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 12), 16);
     await pool.query(
       `INSERT INTO flow_bot.webhook_results
          (workspace_id, outbound_id, conversation_key, ok, status, next_attempt_at, created_at, processed_at)
        VALUES
-         ($1, 900001, 'c1', true, 'done', $2, $2, $2),
-         ($1, 900002, 'c1', false, 'pending', $2, $2, NULL),
-         ($3, 900003, 'c1', true, 'done', $2, $2, $2)`,
-      [c.ws, antigo, `outro-${c.ws}`],
+         ($1, $4, 'c1', true, 'done', $2, $2, $2),
+         ($1, $5, 'c1', false, 'pending', $2, $2, NULL),
+         ($3, $6, 'c1', true, 'done', $2, $2, $2)`,
+      [c.ws, antigo, `outro-${c.ws}`, idBase, idBase + 1, idBase + 2],
     );
 
     const apagados = await c.bot.limparAntigos({ workspaceId: c.ws });
     expect(apagados.webhook_results).toBe(1);
 
     const restantes = await pool.query(
-      "SELECT workspace_id, status FROM flow_bot.webhook_results WHERE outbound_id IN (900001, 900002, 900003) ORDER BY outbound_id",
+      "SELECT workspace_id, status FROM flow_bot.webhook_results WHERE outbound_id = ANY($1::bigint[]) ORDER BY outbound_id",
+      [[idBase, idBase + 1, idBase + 2]],
     );
     expect(restantes.rows).toEqual([
       { workspace_id: c.ws, status: "pending" },
