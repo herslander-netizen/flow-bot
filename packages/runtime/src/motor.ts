@@ -62,7 +62,6 @@ export function processar(
   const sessao = clonar(sessaoAtual);
   delete sessao.erro;
   const texto = evento.type === "message" ? evento.text : "";
-  if (evento.type === "message") sessao.mensagens++;
   const x: Execucao = {
     plano,
     sessao,
@@ -84,6 +83,10 @@ export function processar(
     TETO_ABSOLUTO_DE_PASSOS,
   );
   const fim = (motivo: string): Resultado => resultado(x, motivo);
+
+  // Uma conversa sob responsabilidade humana não pode ser reativada por mensagens ou timers do canal.
+  if (sessao.status === "handed_off") return fim("atendimento_humano");
+  if (evento.type === "message") sessao.mensagens++;
 
   // 1. Sessão parada num nó: o evento retoma de lá.
   if (sessao.cursor) {
