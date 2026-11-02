@@ -97,7 +97,9 @@ export function carregarConfig(
     if (!w.resumeTokenEnv) continue;
     const valor = env[w.resumeTokenEnv];
     if (!valor)
-      throw new ConfigInvalida(`Variável ${w.resumeTokenEnv} (token de retomada de ${w.id}) não está definida.`);
+      throw new ConfigInvalida(
+        `Variável ${w.resumeTokenEnv} (token de retomada de ${w.id}) não está definida.`,
+      );
     resumeTokens.set(w.id, valor);
   }
   return {
