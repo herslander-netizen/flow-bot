@@ -366,33 +366,35 @@ export class FlowBot {
         resultado = { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
       }
       const webhook = item.action.type === "webhook";
-      if (resultado.ok || webhook) {
-        // Webhook não é reenviado às cegas: o resultado (ok ou falha) volta para a conversa decidir o caminho.
-        await this.pool.query(
-          `UPDATE flow_bot.outbound SET status = $2, sent_at = $3, locked_until = NULL, last_error = $4 WHERE id = $1`,
-          [
-            item.id,
-            resultado.ok ? "sent" : "failed",
-            this.agora(),
-            resultado.erro?.slice(0, 500) ?? null,
-          ],
-        );
-        if (webhook) {
-          const chave = `webhook:${item.id}`;
-          await this.receber(
-            item.workspace_id,
-            item.conversation_key,
-            null,
-            chave,
-            {
-              type: "webhook_result",
-              id: chave,
-              at: this.agora().getTime(),
-              ok: resultado.ok,
-            },
-            { ok: resultado.ok },
+      if (webhook) {
+        // Resultado externo e fila interna são persistidos juntos. Se o processo cair, outro ciclo retoma a fila.
+        await emTransacao(this.pool, async (c) => {
+          await c.query(
+            `UPDATE flow_bot.outbound
+                SET status = $2, sent_at = $3, locked_until = NULL, last_error = $4
+              WHERE id = $1`,
+            [
+              item.id,
+              resultado.ok ? "sent" : "failed",
+              this.agora(),
+              resultado.erro?.slice(0, 500) ?? null,
+            ],
           );
-        }
+          await c.query(
+            `INSERT INTO flow_bot.webhook_results
+               (workspace_id, outbound_id, conversation_key, ok, status, next_attempt_at, created_at)
+             VALUES ($1, $2, $3, $4, 'pending', $5, $5)
+             ON CONFLICT (workspace_id, outbound_id) DO NOTHING`,
+            [item.workspace_id, item.id, item.conversation_key, resultado.ok, this.agora()],
+          );
+        });
+        continue;
+      }
+      if (resultado.ok) {
+        await this.pool.query(
+          `UPDATE flow_bot.outbound SET status = 'sent', sent_at = $2, locked_until = NULL, last_error = NULL WHERE id = $1`,
+          [item.id, this.agora()],
+        );
         continue;
       }
       const desistir = item.attempts >= this.maxTentativas;
