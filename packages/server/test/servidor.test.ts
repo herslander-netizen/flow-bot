@@ -53,7 +53,15 @@ describe("configuração e segurança", () => {
     TOKEN_RETOMADA_STUDIO: "retomar-studio",
   };
   const ws = {
-    workspaces: [{ id: "studio", instance: "flow-studio", flowId: "f", tokenEnv: "TOKEN_STUDIO", resumeTokenEnv: "TOKEN_RETOMADA_STUDIO" }],
+    workspaces: [
+      {
+        id: "studio",
+        instance: "flow-studio",
+        flowId: "f",
+        tokenEnv: "TOKEN_STUDIO",
+        resumeTokenEnv: "TOKEN_RETOMADA_STUDIO",
+      },
+    ],
   };
 
   it("carrega credenciais independentes para retomada", () => {
