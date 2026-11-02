@@ -59,7 +59,7 @@ export function criarServidor(p: {
       }
 
       const rotaRetomada = caminho.match(
-        /^\\/workspaces\\/([^/]+)\\/conversations\\/([^/]+)\\/resume$/,
+        /^\/workspaces\/([^/]+)\/conversations\/([^/]+)\/resume$/,
       );
       if (req.method === "POST" && rotaRetomada) {
         const workspaceId = decodeURIComponent(rotaRetomada[1] ?? "");
