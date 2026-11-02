@@ -103,6 +103,7 @@ export function criarServidor(p: {
       // Resposta sai logo, sem esperar o próximo ciclo do laço (o laço cobre qualquer falha).
       void p.bot
         .entregarPendentes(p.adaptador, { workspaceId: w.id, limite: 20 })
+        .then(() => p.bot.processarResultadosWebhook({ workspaceId: w.id }))
         .catch(() => undefined);
     } catch (erro) {
       log("erro", { mensagem: erro instanceof Error ? erro.message : String(erro) });
@@ -126,6 +127,7 @@ export function iniciarLacos(p: {
     try {
       await p.bot.processarVencidos();
       await p.bot.entregarPendentes(p.adaptador);
+      await p.bot.processarResultadosWebhook();
     } catch (erro) {
       log("erro_no_laco", { mensagem: erro instanceof Error ? erro.message : String(erro) });
     } finally {

@@ -341,9 +341,24 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     await c.dizer("quero");
     const { enviados, adaptador } = caixa((n) => n === 1); // o webhook falha
     await c.bot.entregarPendentes(adaptador, { workspaceId: c.ws });
+    const pendente = await pool.query(
+      "SELECT status, ok FROM flow_bot.webhook_results WHERE workspace_id = $1",
+      [c.ws],
+    );
+    expect(pendente.rows).toEqual([{ status: "pending", ok: false }]);
+
+    // Simula reinício: uma nova instância do worker retoma o resultado sem chamar o webhook de novo.
+    const retomado = new FlowBot({ pool, agora: () => new Date("2026-11-02T12:00:00Z") });
+    expect(await retomado.processarResultadosWebhook({ workspaceId: c.ws })).toBe(1);
+    expect(await retomado.processarResultadosWebhook({ workspaceId: c.ws })).toBe(0);
     await c.bot.entregarPendentes(adaptador, { workspaceId: c.ws });
     expect(enviados.map((e) => e.texto)).toEqual(["Não deu, tente mais tarde."]);
     expect((await c.bot.sessao(c.ws, "c1"))?.session.status).toBe("completed");
+    const concluido = await pool.query(
+      "SELECT status, attempts FROM flow_bot.webhook_results WHERE workspace_id = $1",
+      [c.ws],
+    );
+    expect(concluido.rows).toEqual([{ status: "done", attempts: 1 }]);
   });
 
   it("usa o retrato da realidade do hospedeiro e registra o que faltou", async () => {
