@@ -247,6 +247,72 @@ export class FlowBot {
     return total;
   }
 
+  /**
+   * Aplica resultados externos de webhooks persistidos na fila. A chave de evento é estável:
+   * se o processo cair depois de receber() e antes de marcar done, a deduplicação do inbound_events
+   * torna a retomada segura e não executa o fluxo duas vezes.
+   */
+  async processarResultadosWebhook(opcoes: OpcoesDaFila = {}): Promise<number> {
+    const limite = opcoes.limite ?? 50;
+    const agora = this.agora();
+    const reservados = await emTransacao(this.pool, async (c) => {
+      const r = await c.query<{
+        id: string;
+        workspace_id: string;
+        conversation_key: string;
+        outbound_id: string;
+        ok: boolean;
+        attempts: number;
+      }>(
+        `UPDATE flow_bot.webhook_results SET status = 'running', locked_until = $2, attempts = attempts + 1
+          WHERE id IN (
+            SELECT id FROM flow_bot.webhook_results
+             WHERE next_attempt_at <= $1
+               AND (status = 'pending' OR (status = 'running' AND locked_until < $1))
+               AND ($4::text IS NULL OR workspace_id = $4)
+             ORDER BY next_attempt_at, id
+             LIMIT $3
+             FOR UPDATE SKIP LOCKED)
+          RETURNING id, workspace_id, conversation_key, outbound_id, ok, attempts`,
+        [agora, new Date(agora.getTime() + this.reservaMs), limite, opcoes.workspaceId ?? null],
+      );
+      return r.rows;
+    });
+
+    for (const item of reservados) {
+      const chave = `webhook:${item.outbound_id}`;
+      try {
+        await this.receber(
+          item.workspace_id,
+          item.conversation_key,
+          null,
+          chave,
+          { type: "webhook_result", id: chave, at: this.agora().getTime(), ok: item.ok },
+          { ok: item.ok },
+        );
+        await this.pool.query(
+          `UPDATE flow_bot.webhook_results
+              SET status = 'done', processed_at = $2, locked_until = NULL, last_error = NULL
+            WHERE id = $1`,
+          [item.id, this.agora()],
+        );
+      } catch (erro) {
+        const espera = Math.min(5_000 * 2 ** Math.max(0, item.attempts - 1), 3_600_000);
+        await this.pool.query(
+          `UPDATE flow_bot.webhook_results
+              SET status = 'pending', next_attempt_at = $2, locked_until = NULL, last_error = $3
+            WHERE id = $1`,
+          [
+            item.id,
+            new Date(this.agora().getTime() + espera),
+            String(erro instanceof Error ? erro.message : erro).slice(0, 500),
+          ],
+        );
+      }
+    }
+    return reservados.length;
+  }
+
   /** Reserva só a primeira ação pendente de cada conversa (as seguintes esperam a vez). */
   private async reservarSaidas(limite: number, workspaceId: string | null) {
     const agora = this.agora();
@@ -300,33 +366,35 @@ export class FlowBot {
         resultado = { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
       }
       const webhook = item.action.type === "webhook";
-      if (resultado.ok || webhook) {
-        // Webhook não é reenviado às cegas: o resultado (ok ou falha) volta para a conversa decidir o caminho.
-        await this.pool.query(
-          `UPDATE flow_bot.outbound SET status = $2, sent_at = $3, locked_until = NULL, last_error = $4 WHERE id = $1`,
-          [
-            item.id,
-            resultado.ok ? "sent" : "failed",
-            this.agora(),
-            resultado.erro?.slice(0, 500) ?? null,
-          ],
-        );
-        if (webhook) {
-          const chave = `webhook:${item.id}`;
-          await this.receber(
-            item.workspace_id,
-            item.conversation_key,
-            null,
-            chave,
-            {
-              type: "webhook_result",
-              id: chave,
-              at: this.agora().getTime(),
-              ok: resultado.ok,
-            },
-            { ok: resultado.ok },
+      if (webhook) {
+        // Resultado externo e fila interna são persistidos juntos. Se o processo cair, outro ciclo retoma a fila.
+        await emTransacao(this.pool, async (c) => {
+          await c.query(
+            `UPDATE flow_bot.outbound
+                SET status = $2, sent_at = $3, locked_until = NULL, last_error = $4
+              WHERE id = $1`,
+            [
+              item.id,
+              resultado.ok ? "sent" : "failed",
+              this.agora(),
+              resultado.erro?.slice(0, 500) ?? null,
+            ],
           );
-        }
+          await c.query(
+            `INSERT INTO flow_bot.webhook_results
+               (workspace_id, outbound_id, conversation_key, ok, status, next_attempt_at, created_at)
+             VALUES ($1, $2, $3, $4, 'pending', $5, $5)
+             ON CONFLICT (workspace_id, outbound_id) DO NOTHING`,
+            [item.workspace_id, item.id, item.conversation_key, resultado.ok, this.agora()],
+          );
+        });
+        continue;
+      }
+      if (resultado.ok) {
+        await this.pool.query(
+          `UPDATE flow_bot.outbound SET status = 'sent', sent_at = $2, locked_until = NULL, last_error = NULL WHERE id = $1`,
+          [item.id, this.agora()],
+        );
         continue;
       }
       const desistir = item.attempts >= this.maxTentativas;
