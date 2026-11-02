@@ -50,13 +50,16 @@ describe("configuração e segurança", () => {
     EVOLUTION_API_KEY: "k",
     EVOLUTION_WEBHOOK_SECRET: SEGREDO,
     TOKEN_STUDIO: "t",
+    TOKEN_RETOMADA_STUDIO: "retomar-studio",
   };
   const ws = {
-    workspaces: [{ id: "studio", instance: "flow-studio", flowId: "f", tokenEnv: "TOKEN_STUDIO" }],
+    workspaces: [{ id: "studio", instance: "flow-studio", flowId: "f", tokenEnv: "TOKEN_STUDIO", resumeTokenEnv: "TOKEN_RETOMADA_STUDIO" }],
   };
 
-  it("carrega e lê os tokens do ambiente", () => {
-    expect(carregarConfig(env, ws).tokens.get("studio")).toBe("t");
+  it("carrega credenciais independentes para retomada", () => {
+    const cfg = carregarConfig(env, ws);
+    expect(cfg.tokens.get("studio")).toBe("t");
+    expect(cfg.resumeTokens.get("studio")).toBe("retomar-studio");
   });
   it("recusa segredo curto, variável ausente e instância repetida", () => {
     expect(() => carregarConfig({ ...env, EVOLUTION_WEBHOOK_SECRET: "curto" }, ws)).toThrow(
