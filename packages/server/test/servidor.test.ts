@@ -142,6 +142,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
         EVOLUTION_API_KEY: "chave-evolution",
         EVOLUTION_WEBHOOK_SECRET: SEGREDO,
         TOKEN_SISTEMA: "token-do-sistema",
+        TOKEN_RETOMADA: "token-exclusivo-retomada",
       },
       {
         workspaces: [
@@ -152,6 +153,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
             realityUrl: `${sistema.url}/flow-bot/realidade`,
             handoffUrl: `${sistema.url}/flow-bot/equipe`,
             tokenEnv: "TOKEN_SISTEMA",
+            resumeTokenEnv: "TOKEN_RETOMADA",
           },
         ],
       },
