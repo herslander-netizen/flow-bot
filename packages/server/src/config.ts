@@ -26,6 +26,11 @@ export const ConfigDoWorkspace = z
       .string()
       .regex(/^[A-Z][A-Z0-9_]*$/)
       .optional(),
+    /** Credencial exclusiva para autorizar a retomada de conversas deste workspace. */
+    resumeTokenEnv: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]*$/)
+      .optional(),
   })
   .strict();
 
@@ -51,8 +56,10 @@ export type ConfigDoServidor = {
   diasDeRetencao: number;
   intervaloMs: number;
   workspaces: ConfigDoWorkspace[];
-  /** Tokens já lidos do ambiente, por workspace. */
+  /** Tokens usados nas chamadas ao sistema hospedeiro, por workspace. */
   tokens: Map<string, string>;
+  /** Credenciais de entrada para a operação de retomada, independentes dos tokens de saída. */
+  resumeTokens: Map<string, string>;
 };
 
 export class ConfigInvalida extends Error {}
@@ -78,12 +85,22 @@ export function carregarConfig(
       `Arquivo de workspaces inválido: ${lista.error.issues.map((i) => i.message).join("; ")}`,
     );
   const tokens = new Map<string, string>();
+  const resumeTokens = new Map<string, string>();
   for (const w of lista.data.workspaces) {
     if (!w.tokenEnv) continue;
     const valor = env[w.tokenEnv];
     if (!valor)
       throw new ConfigInvalida(`Variável ${w.tokenEnv} (token de ${w.id}) não está definida.`);
     tokens.set(w.id, valor);
+  }
+  for (const w of lista.data.workspaces) {
+    if (!w.resumeTokenEnv) continue;
+    const valor = env[w.resumeTokenEnv];
+    if (!valor)
+      throw new ConfigInvalida(
+        `Variável ${w.resumeTokenEnv} (token de retomada de ${w.id}) não está definida.`,
+      );
+    resumeTokens.set(w.id, valor);
   }
   return {
     porta: Number(env["PORT"] ?? 8080),
@@ -98,5 +115,6 @@ export function carregarConfig(
     intervaloMs: Number(env["FLOW_BOT_INTERVALO_MS"] ?? 2000),
     workspaces: lista.data.workspaces,
     tokens,
+    resumeTokens,
   };
 }

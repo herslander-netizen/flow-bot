@@ -39,7 +39,30 @@ Chamado quando o fluxo passa a conversa para a equipe:
 `{ "workspaceId": "...", "conversationKey": "5582999990000", "note": "Cliente pediu atendimento da equipe" }`.
 Responda `2xx`; erro gera nova tentativa (5 s, 10 s, 20 s… até 1 h).
 
-### 3. Perfil e fluxos
+### 3. Retomada autenticada de conversa (opcional)
+
+Configure `resumeTokenEnv` no workspace e defina a variável correspondente no ambiente do Flow Bot.
+Essa credencial é exclusiva para a API de retomada e não reutiliza `tokenEnv`.
+
+```json
+{
+  "id": "studio",
+  "instance": "flow-studio",
+  "flowId": "flow-atendimento",
+  "resumeTokenEnv": "FLOW_STUDIO_RESUME_TOKEN"
+}
+```
+
+O sistema hospedeiro pode retomar uma conversa em handoff com:
+
+```http
+POST /workspaces/studio/conversations/5582999990000/resume
+Authorization: Bearer <FLOW_STUDIO_RESUME_TOKEN>
+```
+
+Não envie corpo. A resposta informa `retomada: true` quando a sessão estava em handoff e foi retomada; caso contrário, retorna `false`. Credencial inválida ou ausente retorna `401`; workspace sem credencial configurada retorna `404`. Exponha a rota somente por HTTPS e mantenha o token no backend do sistema hospedeiro.
+
+### 4. Perfil e fluxos
 
 Escreva o perfil (`docs/REALITY.md`), os fluxos e os cenários; rode o simulador; publique:
 

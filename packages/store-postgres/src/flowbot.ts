@@ -542,6 +542,7 @@ export class FlowBot {
       ["executions", "created_at", "TRUE"],
       ["outbound", "created_at", "status IN ('sent', 'failed', 'cancelled')"],
       ["jobs", "created_at", "status IN ('done', 'failed', 'cancelled')"],
+      ["webhook_results", "processed_at", "status = 'done' AND processed_at IS NOT NULL"],
       ["conversations", "updated_at", "TRUE"],
       ["learning_phrase_contacts", "seen_at", "TRUE"],
     ];
@@ -666,6 +667,17 @@ export class FlowBot {
       );
       const resultado = processar(plano, linha.session, evento, { realidade });
       const sessao = resultado.sessao;
+
+      // Ao encaminhar para atendimento humano, cancela o que ainda não foi reservado.
+      // Itens em "sending" podem já estar em trânsito e não são interrompidos à força.
+      if (linha.session.status !== "handed_off" && sessao.status === "handed_off") {
+        await c.query(
+          `UPDATE flow_bot.outbound
+              SET status = 'cancelled', locked_until = NULL
+            WHERE workspace_id = $1 AND conversation_key = $2 AND status = 'pending'`,
+          [workspaceId, conversationKey],
+        );
+      }
 
       await c.query(
         `UPDATE flow_bot.conversations SET session = $3, flow_version = $4, revision = revision + 1, updated_at = $5
