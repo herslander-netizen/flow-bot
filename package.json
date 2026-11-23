@@ -18,6 +18,7 @@
     "test": "vitest run",
     "schema": "npm run schema --workspace @flow-bot/contracts",
     "autor:claude": "node packages/server/bin/claude-author.mjs",
+    "autor:revisar": "node packages/server/bin/flow-review.mjs",
     "simular": "tsc -b packages/contracts packages/runtime && node packages/runtime/bin/simular.mjs",
     "simular:flow": "npm run simular -- presets/flow/atendimento.json presets/flow/atendimento.cenarios.json presets/flow/perfil.json"
   },
