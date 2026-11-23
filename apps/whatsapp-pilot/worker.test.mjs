@@ -89,7 +89,10 @@ function env(db = dbFake(), extras = {}) {
     ...extras,
   };
 }
-function chamada(text, { id = "inbound-1", fromMe = false, instance = inst, headers = {} } = {}) {
+function chamada(
+  text,
+  { id = "inbound-1", fromMe = false, instance = inst, headers = {}, buttonId = null } = {},
+) {
   return new Request("https://flowbot-test.example/webhooks/evolution", {
     method: "POST",
     headers: {
@@ -102,7 +105,7 @@ function chamada(text, { id = "inbound-1", fromMe = false, instance = inst, head
       instance,
       data: {
         key: { id, fromMe, remoteJid: contato + "@s.whatsapp.net" },
-        message: { conversation: text },
+        message: buttonId ? { buttonsResponseMessage: { selectedButtonId: buttonId } } : { conversation: text },
       },
     }),
   });
@@ -164,8 +167,8 @@ describe("piloto Cloudflare FlowBot", () => {
     const calls = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (_url, opts) => {
-        calls.push({ headers: opts.headers, data: JSON.parse(opts.body) });
+      vi.fn(async (url, opts) => {
+        calls.push({ url, headers: opts.headers, data: JSON.parse(opts.body) });
         return new Response(
           JSON.stringify({ status: "accepted", key: { id: "out-" + calls.length } }),
           { status: 202 },
@@ -177,13 +180,68 @@ describe("piloto Cloudflare FlowBot", () => {
     expect(first.body).toMatchObject({ ok: true, outcome: "sent" });
     const repeat = await resposta(await worker.fetch(chamada("teste flowbot"), e));
     expect(repeat.body).toMatchObject({ ok: true, duplicate: true });
-    const second = await resposta(await worker.fetch(chamada("1", { id: "inbound-2" }), e));
+    const second = await resposta(
+      await worker.fetch(chamada(null, { id: "inbound-2", buttonId: "1" }), e),
+    );
     expect(second.body.outcome).toBe("sent");
     expect(calls).toHaveLength(2);
     expect(calls[0].headers.authorization).toBe("Bearer " + token);
-    expect(calls[0].headers["Idempotency-Key"]).toMatch(/^flowbot:[0-9a-f]{64}$/);
+    expect(calls[0].headers["Idempotency-Key"]).toMatch(/^flowbot:[0-9a-f]{64}:buttons$/);
+    expect(calls[0].url).toContain("/v1/messages/buttons");
+    expect(calls[0].data.buttons).toHaveLength(2);
+    expect(calls[0].data.buttons[1]).toMatchObject({ id: "2" });
     expect(calls[0].data.number).toBe(contato);
     expect(calls[1].data.text).toContain("automatizar conversas");
+    expect(calls[1].url).toContain("/v1/messages/text");
+  });
+
+  it("rejeição definitiva dos botões envia menu de texto com outra chave idempotente", async () => {
+    const db = dbFake();
+    const calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url, options) => {
+        calls.push({ url, headers: options.headers, data: JSON.parse(options.body) });
+        return url.endsWith("/buttons")
+          ? new Response(JSON.stringify({ error: "unsupported" }), { status: 422 })
+          : new Response(JSON.stringify({ status: "accepted" }), { status: 202 });
+      }),
+    );
+    const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));
+    expect(r.body.outcome).toBe("sent");
+    expect(calls).toHaveLength(2);
+    expect(calls[0].url).toContain("/buttons");
+    expect(calls[1].url).toContain("/text");
+    expect(calls[1].data.text).toContain("Digite:");
+    expect(calls[0].headers["Idempotency-Key"]).not.toBe(calls[1].headers["Idempotency-Key"]);
+  });
+
+  it("menu texto permite alternativa manual quando o WhatsApp não exibe botões", async () => {
+    const db = dbFake();
+    const calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url, opts) => {
+        calls.push({ url, data: JSON.parse(opts.body) });
+        return new Response(JSON.stringify({ status: "accepted" }), { status: 202 });
+      }),
+    );
+    const r = await resposta(await worker.fetch(chamada("menu texto"), env(db)));
+    expect(r.body.outcome).toBe("sent");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain("/text");
+    expect(calls[0].data.text).toContain("Conhecer o FlowBot");
+  });
+
+  it("botões aceitos não disparam um segundo menu por precaução", async () => {
+    const db = dbFake();
+    const f = vi.fn(async () =>
+      new Response(JSON.stringify({ status: "accepted" }), { status: 202 }),
+    );
+    vi.stubGlobal("fetch", f);
+    const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));
+    expect(r.body.outcome).toBe("sent");
+    expect(f).toHaveBeenCalledTimes(1);
   });
 
   it("resultado unknown bloqueia outros envios da conversa", async () => {
