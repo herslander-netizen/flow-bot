@@ -40,12 +40,11 @@ Arquivo local `briefing.json` de exemplo; dados fictícios, sem conversas pessoa
 {
   "workspaceId": "flowbot",
   "requestKey": "primeira-versao-fluxo-2026-0001",
-  "briefing": "Negócio de serviços. Cumprimente, liste opções: serviços, horário, valores, falar com a equipe. Preço não fornecido: não inventar. Atendimento humano quando pedido. Criar cenários de teste.",
-  "perfil": null
+  "briefing": "Negócio de serviços. Cumprimente, liste opções: serviços, horário, valores, falar com a equipe. Preço não fornecido: não inventar. Atendimento humano quando pedido. Criar cenários de teste."
 }
 ```
 
-Atenção: para executar sem perfil, **omita** a propriedade `perfil` (não use `null`). Se um fluxo citar `reality.*`, informe um PerfilDeRealidade validado. A IA recebe apenas o briefing e o perfil, não números de WhatsApp, chaves nem os identificadores de controle.
+Para executar sem perfil, omita a propriedade `perfil`. Se um fluxo citar `reality.*`, informe um PerfilDeRealidade validado. A IA recebe apenas o briefing e o perfil, não números de WhatsApp, chaves nem os identificadores de controle.
 
 ```sh
 npm ci
