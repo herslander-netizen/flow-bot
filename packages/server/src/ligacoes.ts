@@ -4,7 +4,8 @@
  * - encaminhamento: POST `handoffUrl` → `{ workspaceId, conversationKey, note }`;
  * - mensagens ao cliente: Evolution; webhooks de fluxo: só HTTPS público.
  */
-import { enviarTexto, textoParaOCliente } from "@flow-bot/channel-evolution";
+import { enviarTexto, enviarTextoViaGatewayAlvo, textoParaOCliente } from "@flow-bot/channel-evolution";
+import { createHash } from "node:crypto";
 import type { Realidade } from "@flow-bot/contracts";
 import type { AdaptadorDeSaida } from "@flow-bot/store-postgres";
 
@@ -65,7 +66,26 @@ export function adaptadorDeSaida(cfg: ConfigDoServidor, deps: Dependencias = {})
     if (!w) return { ok: false, erro: "workspace_sem_configuracao" };
     const token = cfg.tokens.get(workspaceId);
     const texto = textoParaOCliente(acao);
-    if (texto !== null)
+    if (texto !== null) {
+      if (cfg.evolution.provider === "alvo") {
+        const chaveToken = cfg.tokensEvolution.get(workspaceId);
+        if (!chaveToken) return { ok: false, erro: "gateway_token_ausente" };
+        // A chave dura entre retries/restarts e obedece ao máximo de 128 caracteres.
+        // Hash une workspace+chave sem revelar internamente o id do tenant ao gateway.
+        const idempotencyKey = createHash("sha256")
+          .update(JSON.stringify([workspaceId, chave]))
+          .digest("hex");
+        return enviarTextoViaGatewayAlvo(
+          {
+            url: cfg.evolution.url,
+            token: chaveToken,
+            ...(deps.fetch ? { fetch: deps.fetch } : {}),
+          },
+          conversationKey,
+          texto,
+          idempotencyKey,
+        );
+      }
       return enviarTexto(
         {
           url: cfg.evolution.url,
@@ -76,6 +96,7 @@ export function adaptadorDeSaida(cfg: ConfigDoServidor, deps: Dependencias = {})
         conversationKey,
         texto,
       );
+    }
     if (acao.type === "handoff") {
       if (!w.handoffUrl) return { ok: true };
       try {
