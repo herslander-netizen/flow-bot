@@ -35,6 +35,9 @@ export type ResultadoDaOficina = {
   gaps: string[];
   problems: Array<Pick<Problema, "code" | "message" | "path">>;
   tests: { name: string; ok: boolean; failures: string[] }[];
+  /** Cenários definidos pelo operador/revisor, nunca gerados na mesma chamada Claude. */
+  independentTests: { name: string; ok: boolean; failures: string[] }[];
+  checkedAgainstIndependentTests: boolean;
   usage: { inputTokens: number; outputTokens: number };
   approved: false;
   published: false;
@@ -118,6 +121,7 @@ export function revisarPropostaDosAgentes(
   raw: unknown,
   perfilRaw?: unknown,
   usage = { inputTokens: 0, outputTokens: 0 },
+  reviewerScenariosRaw?: unknown,
 ): ResultadoDaOficina {
   const data = objeto(raw) ? raw : {};
   const flowRaw = lerJson(data["flow_json"]);
@@ -166,6 +170,32 @@ export function revisarPropostaDosAgentes(
       path: "scenarios",
     });
   const tests: ResultadoDaOficina["tests"] = [];
+  const independentTests: ResultadoDaOficina["independentTests"] = [];
+  const reviewerScenarios =
+    reviewerScenariosRaw === undefined
+      ? null
+      : ArquivoDeCenarios.safeParse(reviewerScenariosRaw);
+  if (reviewerScenarios && (
+    !reviewerScenarios.success ||
+    reviewerScenarios.data.scenarios.length > 20 ||
+    reviewerScenarios.data.scenarios.some((scenario) =>
+      scenario.steps.length > 20 ||
+      !scenario.steps.some((step) => {
+        if (!step.expect) return false;
+        return Object.values(step.expect).some((value) =>
+          Array.isArray(value)
+            ? value.length > 0
+            : value !== undefined && value !== null,
+        );
+      }),
+    )
+  )) {
+    problems.push({
+      code: "estrutura",
+      message: "Os cenários independentes do operador estão inválidos, sem asserções ou excedem os limites.",
+      path: "reviewerScenarios",
+    });
+  }
   if (
     validation.ok &&
     candidate?.flow.status === "draft" &&
@@ -183,6 +213,16 @@ export function revisarPropostaDosAgentes(
           failures: report.passos.flatMap((p) => p.falhas).slice(0, 30),
         });
       }
+      if (reviewerScenarios?.success) {
+        for (const scenario of reviewerScenarios.data.scenarios) {
+          const report = simular(compiled, scenario, { realidade });
+          independentTests.push({
+            name: report.name,
+            ok: report.ok,
+            failures: report.passos.flatMap((p) => p.falhas).slice(0, 30),
+          });
+        }
+      }
     } catch {
       problems.push({
         code: "estrutura",
@@ -192,9 +232,11 @@ export function revisarPropostaDosAgentes(
     }
   }
   const allGreen = tests.length > 0 && tests.every((x) => x.ok);
+  const independentlyChecked =
+    independentTests.length > 0 && independentTests.every((x) => x.ok);
   return {
     status:
-      problems.length === 0 && allGreen && gaps.length === 0
+      problems.length === 0 && allGreen && independentlyChecked && gaps.length === 0
         ? "ready_for_review"
         : "requires_revision",
     flow: candidate?.flow.status === "draft" ? candidate : null,
@@ -202,6 +244,8 @@ export function revisarPropostaDosAgentes(
     gaps,
     problems,
     tests,
+    independentTests,
+    checkedAgainstIndependentTests: independentlyChecked,
     usage,
     approved: false,
     published: false,
