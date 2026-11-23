@@ -1,0 +1,29 @@
+name: Reformatar branch Evolution Alvo (temporário)
+on:
+  push:
+    branches:
+      - feat/flowbot-evolution-alvo-gateway-20261123
+permissions:
+  contents: write
+jobs:
+  formatar:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Padronizar só os arquivos da integração
+        run: |
+          npx prettier --write packages/channel-evolution/src/gateway-alvo.ts packages/channel-evolution/src/index.ts packages/channel-evolution/test/gateway-alvo.test.ts packages/server/src/config.ts packages/server/src/ligacoes.ts packages/server/test/gateway-alvo.test.ts packages/server/bin/flow-bot-server.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages/channel-evolution/src/gateway-alvo.ts packages/channel-evolution/src/index.ts packages/channel-evolution/test/gateway-alvo.test.ts packages/server/src/config.ts packages/server/src/ligacoes.ts packages/server/test/gateway-alvo.test.ts packages/server/bin/flow-bot-server.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "style: padronizar integração Evolution Alvo com Prettier"
+            git push origin HEAD:refs/heads/feat/flowbot-evolution-alvo-gateway-20261123
+          fi
