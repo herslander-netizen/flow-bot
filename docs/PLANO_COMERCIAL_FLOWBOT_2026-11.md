@@ -28,30 +28,24 @@ FlowBot é um produto da **Alvo Digital** para atendimento comercial e automaç�
 **Métricas com baseline antes/depois:** tempo mediano de primeira resposta, taxa de solicitações resolvidas sem humano, taxa de transferência, tentativas de envio ambíguas, agendamentos comprovados no sistema de origem, tempo de configuração, incidentes por 1.000 eventos, renovação paga e horas de suporte por cliente.
 
 ## Stack e decisões build / buy / integrate
-| Componente | Decisão inicial | Justificativa |
-| --- | --- | --- |
-| Runtime | Manter TypeScript/JSON DSL/Zod/PostgreSQL próprios | Código existente e contratos auditáveis |
-| Studio | Construir com React Flow (MIT) | Editor como representação, não fonte de execução |
-| Inbox humano | MVP mínimo próprio **ou** integração posterior Chatwoot (núcleo MIT) | Avaliar custo real de RAM/CPU e licença de recursos utilizados |
-| Ações e filas | Outbox transacional em PostgreSQL e adaptadores próprios | Evitar introduzir Redis/RabbitMQ prematuramente |
-| Canais | Simulador e Evolution controlada para homologação; avaliar Cloud API oficial para clientes pagantes | Evitar prometer conformidade/estabilidade de conexão não oficial |
-| IA | Opcional e desligada no piloto; testar propostas via APIs gratuitas somente dentro de suas cotas | Custo previsível e isolamento de dados |
-| Infra | Validar capacidade real da Oracle/Evolution Alvo e Cloudflare; não acoplar ambientes sem autorização | Software gratuito ≠ custo operacional zero |
-
-**Referências a estudar e avaliar licenças antes de copiar/empacotar:** React Flow, Chatwoot, XState, Activepieces core MIT, Node-RED, Langflow. Não incorporar automaticamente projetos com licenças restritivas para SaaS, como n8n, Typebot ou componentes enterprise de outros produtos. Preservar avisos de licença.
+- **Runtime:** manter TypeScript/JSON DSL/Zod/PostgreSQL próprios; contratos auditáveis e código existente.
+- **Studio:** construir com React Flow (MIT); o editor não é a fonte de execução.
+- **Inbox humano:** MVP mínimo próprio ou integração posterior com Chatwoot, validando recursos e custo real.
+- **Ações e filas:** outbox transacional em PostgreSQL e adaptadores próprios, sem Redis/RabbitMQ prematuros.
+- **Canais:** simulador e Evolution homologada; avaliar Cloud API oficial para clientes pagantes.
+- **IA:** opcional e desligada no piloto; controlar cotas e isolar dados de cada empresa.
+- **Infraestrutura:** validar capacidade real da Oracle, Evolution Alvo e Cloudflare antes de configurar.
 
 ## P0 — barreiras obrigatórias antes de cliente real
-| Prioridade | Lacuna observada na leitura estática | Critério de aceite |
-| --- | --- | --- |
-| Bloqueadora | Reenvio de resposta após timeout/queda sem confirmação do canal | Testar crash após envio, IDs de provedor, reconciliação e duplicidade; não afirmar exactly-once sem suporte externo |
-| Bloqueadora | Intervenção humana não é inferida com segurança das mensagens `fromMe` | Diferenciar mensagens do próprio bot e da equipe com IDs do provedor; tomada manual autenticada; zero respostas automáticas após takeover |
-| Alta | Retries de webhook declarados no contrato eram ignorados | Configuração aplicada, backoff, teste em Postgres, limite global; destino externo **deve** deduplicar por `Idempotency-Key` |
-| Alta | Webhook inbound usa segredo compartilhado entre instâncias | Autenticidade vinculada ao canal/empresa; rotação de credenciais e testes contra spoofing |
-| Alta | DNS validado antes de fetch pode não ser IP efetivo da conexão | Proteção SSRF eficaz, política de destinos, DNS rebinding, testes de hosts privados |
-| Alta | Parser Evolution só reconhece parte dos JIDs | Testes com formatos reais; não inventar equivalências entre LID e telefone |
-| Alta | Falta catálogo de ações aprovadas pelo negócio | Nenhuma ação muda agenda/pagamento sem confirmação de backend |
-| Alta | Falta operação multiempresa autônoma | RBAC/RLS, isolamento, alertas, backups, quotas, consentimento, rastreabilidade |
-| Média | Documentação e exemplos defasados | README e CI batem com os pacotes e testes existentes |
+- **Bloqueadora — reenvio após timeout/queda:** testar crash após envio, IDs de provedor, reconciliação e duplicidade; não afirmar exactly-once sem suporte externo.
+- **Bloqueadora — intervenção humana:** diferenciar mensagens `fromMe` do próprio bot e da equipe com IDs do provedor; takeover autenticado e nenhum envio após tomada.
+- **Alta — tentativas de webhook:** aplicar backoff, configurar teto global, testar em Postgres e exigir idempotência do destinatário.
+- **Alta — autenticação inbound:** credenciais isoladas por canal/empresa, rotação e teste contra spoofing.
+- **Alta — proteção SSRF:** impedir DNS rebinding, destinos privados e acesso arbitrário a metadados de cloud.
+- **Alta — parser Evolution:** validar formatos de JID com casos reais sem confundir LID e telefone.
+- **Alta — ações autorizadas:** nenhuma alteração em agenda, pedido ou pagamento sem confirmação do backend.
+- **Alta — operação multiempresa:** RBAC/RLS, backups, quotas, logs, consentimento e isolamento.
+- **Média — documentação:** README e CI devem corresponder aos pacotes e comportamentos existentes.
 
 **Limitação expressa:** reenviar um webhook mutável pode repetir uma operação caso o receptor não implemente idempotência. A inclusão do cabeçalho `idempotency-key` não resolve sozinha essa garantia. Destinos de ação devem exigir idempotência comprovada ou revisão manual de resultados ambíguos.
 
