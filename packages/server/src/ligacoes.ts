@@ -98,7 +98,7 @@ export function adaptadorDeSaida(cfg: ConfigDoServidor, deps: Dependencias = {})
         const r = await chamarJson(acao.url, {
           metodo: acao.method,
           timeoutMs: acao.timeoutMs,
-          idempotencyKey: chave,
+          idempotencyKey: `${workspaceId}:${chave}`,
           corpo: { workspaceId, conversationKey, nodeId: acao.nodeId },
           ...(deps.fetch ? { fetch: deps.fetch } : {}),
         });
