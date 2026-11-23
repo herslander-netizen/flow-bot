@@ -4,6 +4,7 @@ import {
   configurarWebhook,
   enviarTexto,
   lerAvisoDaEvolution,
+  lerSaidaPropriaDaEvolution,
   textoParaOCliente,
 } from "../src/index.js";
 
@@ -67,6 +68,26 @@ describe("lerAvisoDaEvolution", () => {
       instancia: "flow-studio",
       estado: "open",
     });
+  });
+});
+
+describe("classificação conservadora de fromMe", () => {
+  it("extrai a mensagem própria sem afirmar que foi enviada por humano", () => {
+    expect(lerSaidaPropriaDaEvolution(mensagem({}, { fromMe: true }))).toEqual({
+      instancia: "flow-studio",
+      id: "ABC123",
+      telefone: "5582999990000",
+    });
+    expect(lerSaidaPropriaDaEvolution(mensagem())).toBeNull();
+  });
+
+  it("ID ausente não permite correlação; JID LID permanece indeterminado", () => {
+    expect(lerSaidaPropriaDaEvolution(mensagem({}, { fromMe: true, id: undefined }))).toBeNull();
+    expect(
+      lerSaidaPropriaDaEvolution(
+        mensagem({}, { fromMe: true, remoteJid: "123456@lid" }),
+      ),
+    ).toMatchObject({ telefone: null, id: "ABC123" });
   });
 });
 
