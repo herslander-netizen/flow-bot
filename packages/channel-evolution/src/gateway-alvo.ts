@@ -91,9 +91,7 @@ export async function enviarTextoViaGatewayAlvo(
 }
 
 /** Monitor de conexão por projeto: não expõe token ou número. */
-export async function consultarConexaoGatewayAlvo(
-  cfg: ConfigDoGatewayAlvo,
-): Promise<{
+export async function consultarConexaoGatewayAlvo(cfg: ConfigDoGatewayAlvo): Promise<{
   ok: boolean;
   state?: "open" | "close" | "connecting" | "unconfigured";
   erro?: string;
