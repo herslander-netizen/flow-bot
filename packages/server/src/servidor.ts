@@ -57,6 +57,50 @@ export function criarServidor(p: {
         await p.pool.query("SELECT 1");
         return responder(res, 200, { ok: true });
       }
+      // Operações humanas são autenticadas por workspace e não pelo segredo do webhook.
+      // Nenhuma ação de atendente usa o token de envio da Evolution.
+      if (
+        req.method === "POST" &&
+        (caminho === "/ops/conversations/handoff" || caminho === "/ops/conversations/resume")
+      ) {
+        const conteudo = await lerCorpo(req);
+        if (conteudo === null) return responder(res, 413, { erro: "corpo_grande_demais" });
+        let dados: Record<string, unknown>;
+        try {
+          const parsed: unknown = JSON.parse(conteudo);
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+            throw new Error("objeto_esperado");
+          dados = parsed as Record<string, unknown>;
+        } catch {
+          return responder(res, 400, { erro: "json_invalido" });
+        }
+        const workspaceId = dados["workspaceId"];
+        const conversationKey = dados["conversationKey"];
+        if (
+          typeof workspaceId !== "string" ||
+          typeof conversationKey !== "string" ||
+          !/^\d{10,15}$/.test(conversationKey)
+        )
+          return responder(res, 400, { erro: "parametros_invalidos" });
+        const segredoOperador = p.cfg.tokensOperadores.get(workspaceId);
+        const autorizacao = req.headers["authorization"];
+        const cabecalho = typeof autorizacao === "string" ? autorizacao : "";
+        const recebido = cabecalho.startsWith("Bearer ") ? cabecalho.slice(7) : "";
+        if (!segredoOperador || !recebido || !igual(recebido, segredoOperador)) {
+          log("operacao_humana_negada", { motivo: "credencial" });
+          return responder(res, 401, { erro: "nao_autorizado" });
+        }
+        const assumir = caminho.endsWith("/handoff");
+        const changed = assumir
+          ? await p.bot.assumirAtendimento(workspaceId, conversationKey)
+          : await p.bot.retomarAtendimento(workspaceId, conversationKey);
+        log(assumir ? "operador_assumiu" : "bot_retomado", {
+          workspace: workspaceId,
+          alterado: changed,
+        });
+        return responder(res, 200, { ok: true, changed });
+      }
+
       if (req.method !== "POST" || caminho !== "/webhooks/evolution")
         return responder(res, 404, { erro: "nao_encontrado" });
 

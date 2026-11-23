@@ -355,15 +355,57 @@ export class FlowBot {
   ) {
     for (const item of reservados) {
       let resultado: { ok: boolean; erro?: string };
-      try {
-        resultado = await adaptador({
-          workspaceId: item.workspace_id,
-          conversationKey: item.conversation_key,
-          chave: item.idempotency_key,
-          acao: item.action,
+      // Uma operação de takeover espera a transmissão já em andamento terminar.
+      // Ao retornar sucesso, nenhuma saída nova pode partir para o canal.
+      // O lock é por conversa, não por workspace: outros clientes continuam atendidos.
+      if (
+        item.action.type === "send_text" ||
+        item.action.type === "send_quick_replies" ||
+        item.action.type === "webhook"
+      ) {
+        const tentativa = await emTransacao(this.pool, async (c) => {
+          const conversa = await c.query<{ session: Sessao }>(
+            `SELECT session FROM flow_bot.conversations
+              WHERE workspace_id = $1 AND conversation_key = $2 FOR UPDATE`,
+            [item.workspace_id, item.conversation_key],
+          );
+          if (!conversa.rows[0] || conversa.rows[0].session.status === "handed_off") {
+            await c.query(
+              "UPDATE flow_bot.outbound SET status = 'cancelled', locked_until = NULL WHERE id = $1 AND status = 'sending'",
+              [item.id],
+            );
+            return { cancelada: true as const };
+          }
+          try {
+            return {
+              cancelada: false as const,
+              resultado: await adaptador({
+                workspaceId: item.workspace_id,
+                conversationKey: item.conversation_key,
+                chave: item.idempotency_key,
+                acao: item.action,
+              }),
+            };
+          } catch (erro) {
+            return {
+              cancelada: false as const,
+              resultado: { ok: false, erro: erro instanceof Error ? erro.message : String(erro) },
+            };
+          }
         });
-      } catch (erro) {
-        resultado = { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
+        if (tentativa.cancelada) continue;
+        resultado = tentativa.resultado;
+      } else {
+        try {
+          resultado = await adaptador({
+            workspaceId: item.workspace_id,
+            conversationKey: item.conversation_key,
+            chave: item.idempotency_key,
+            acao: item.action,
+          });
+        } catch (erro) {
+          resultado = { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
+        }
       }
       if (item.action.type === "webhook") {
         // "retries" conta tentativas adicionais. maxTentativas é o teto operacional global.
@@ -425,6 +467,47 @@ export class FlowBot {
         ],
       );
     }
+  }
+
+  /**
+   * Operador assumiu uma conversa existente. Marca a sessão como handed_off sob lock,
+   * cancelando saídas e timers pendentes na MESMA transação. Repetir é idempotente.
+   * Mensagens já enviadas não podem ser desfeitas.
+   */
+  async assumirAtendimento(workspaceId: string, conversationKey: string): Promise<boolean> {
+    return emTransacao(this.pool, async (c) => {
+      const r = await c.query<LinhaDeConversa>(
+        `SELECT flow_id, flow_version, session, revision FROM flow_bot.conversations
+          WHERE workspace_id = $1 AND conversation_key = $2 FOR UPDATE`,
+        [workspaceId, conversationKey],
+      );
+      const linha = r.rows[0];
+      if (!linha || linha.session.status === "handed_off") return false;
+      const sessao: Sessao = {
+        ...linha.session,
+        status: "handed_off",
+        cursor: null,
+        prazo: null,
+        tentativas: 0,
+      };
+      await c.query(
+        `UPDATE flow_bot.conversations
+            SET session = $3, revision = revision + 1, updated_at = $4
+          WHERE workspace_id = $1 AND conversation_key = $2`,
+        [workspaceId, conversationKey, JSON.stringify(sessao), this.agora()],
+      );
+      await c.query(
+        `UPDATE flow_bot.outbound SET status = 'cancelled', locked_until = NULL
+          WHERE workspace_id = $1 AND conversation_key = $2 AND status = 'pending'`,
+        [workspaceId, conversationKey],
+      );
+      await c.query(
+        `UPDATE flow_bot.jobs SET status = 'cancelled', locked_until = NULL
+          WHERE workspace_id = $1 AND conversation_key = $2 AND status = 'pending'`,
+        [workspaceId, conversationKey],
+      );
+      return true;
+    });
   }
 
   /**

@@ -31,6 +31,11 @@ export const ConfigDoWorkspace = z
       .string()
       .regex(/^[A-Z][A-Z0-9_]*$/)
       .optional(),
+    /** Token independente de operação humana; não é a credencial da Evolution. */
+    operatorTokenEnv: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]*$/)
+      .optional(),
   })
   .strict();
 
@@ -60,6 +65,8 @@ export type ConfigDoServidor = {
   tokens: Map<string, string>;
   /** Tokens do gateway, carregados apenas no servidor e nunca no JSON de workspaces. */
   tokensEvolution: Map<string, string>;
+  /** Tokens de handoff do operador, somente no servidor. */
+  tokensOperadores: Map<string, string>;
 };
 
 export class ConfigInvalida extends Error {}
@@ -90,12 +97,25 @@ export function carregarConfig(
   const tokens = new Map<string, string>();
   const tokensEvolution = new Map<string, string>();
   const vistosEvolution = new Set<string>();
+  const tokensOperadores = new Map<string, string>();
+  const vistosOperadores = new Set<string>();
   for (const w of lista.data.workspaces) {
     if (w.tokenEnv) {
       const valor = env[w.tokenEnv];
       if (!valor)
         throw new ConfigInvalida(`Variável ${w.tokenEnv} (token de ${w.id}) não está definida.`);
       tokens.set(w.id, valor);
+    }
+    if (w.operatorTokenEnv) {
+      const tokenOperador = env[w.operatorTokenEnv];
+      if (!tokenOperador || tokenOperador.length < 32)
+        throw new ConfigInvalida(`Token de operador ${w.operatorTokenEnv} exige 32 caracteres.`);
+      if (tokenOperador === segredo || vistosOperadores.has(tokenOperador))
+        throw new ConfigInvalida(
+          "Token de operador deve ser exclusivo e não pode reutilizar o webhook.",
+        );
+      vistosOperadores.add(tokenOperador);
+      tokensOperadores.set(w.id, tokenOperador);
     }
     if (provider === "alvo") {
       if (!w.evolutionTokenEnv)
@@ -107,6 +127,11 @@ export function carregarConfig(
       vistosEvolution.add(valor);
       tokensEvolution.set(w.id, valor);
     }
+  }
+  for (const w of lista.data.workspaces) {
+    const operador = tokensOperadores.get(w.id);
+    if (operador && (operador === tokens.get(w.id) || operador === tokensEvolution.get(w.id)))
+      throw new ConfigInvalida("Token do operador não pode reutilizar credenciais de sistemas.");
   }
   return {
     porta: Number(env["PORT"] ?? 8080),
@@ -123,5 +148,6 @@ export function carregarConfig(
     workspaces: lista.data.workspaces,
     tokens,
     tokensEvolution,
+    tokensOperadores,
   };
 }
