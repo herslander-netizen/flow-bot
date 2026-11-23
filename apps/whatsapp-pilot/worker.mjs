@@ -91,13 +91,18 @@ function lerEvento(corpo, instance) {
   if (!/^\d{10,15}$/.test(contact)) return null;
   const message = data.message;
   if (!message || typeof message !== "object") return null;
-  const input = message.conversation ?? message.extendedTextMessage?.text;
+  const input =
+    message.conversation ??
+    message.extendedTextMessage?.text ??
+    message.buttonsResponseMessage?.selectedButtonId ??
+    message.buttonsResponseMessage?.selectedDisplayText ??
+    message.listResponseMessage?.singleSelectReply?.selectedRowId;
   if (typeof input !== "string" || input.length > 1000) return null;
   return { id, contact, input: textoNormalizado(input) };
 }
 
 function respostaDoPiloto(input, sessionActive) {
-  if (GATILHOS.has(input)) {
+  if (GATILHOS.has(input) || input === "menu" || input === "menu texto") {
     return "👋 *FlowBot — teste de atendimento*\n\nConexão WhatsApp funcionando! ✅\n\nDigite:\n*1* — Conhecer o FlowBot\n*2* — Atendimento humano (simulação)\n\n_Este é um ambiente de homologação._";
   }
   if (!sessionActive) return null;
@@ -108,18 +113,34 @@ function respostaDoPiloto(input, sessionActive) {
   return null;
 }
 
-async function enviarGateway(env, numero, text, key) {
+const BOTOES_TESTE = [
+  { id: "1", displayText: "Conhecer FlowBot" },
+  { id: "2", displayText: "Falar com atendente" },
+];
+
+async function enviarGateway(env, numero, mensagem, key) {
+  const formato = mensagem.type === "buttons" ? "buttons" : "text";
+  const corpo =
+    formato === "buttons"
+      ? {
+          number: numero,
+          title: "FlowBot — atendimento de teste",
+          description: "Bem-vindo! Como posso ajudar? (ambiente de homologação)",
+          footer: "Se os botões não aparecerem, envie: menu texto",
+          buttons: BOTOES_TESTE,
+        }
+      : { number: numero, text: mensagem.text };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const r = await fetch(URL_GATEWAY + "/v1/messages/text", {
+    const r = await fetch(URL_GATEWAY + "/v1/messages/" + formato, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN,
         "Idempotency-Key": key,
       },
-      body: JSON.stringify({ number: numero, text }),
+      body: JSON.stringify(corpo),
       signal: controller.signal,
       redirect: "error",
     });
@@ -128,7 +149,12 @@ async function enviarGateway(env, numero, text, key) {
       return { outcome: "sent", id: typeof obj.key?.id === "string" ? obj.key.id : null };
     if (obj?.status === "unknown" || obj?.status === "pending")
       return { outcome: "unknown", id: null };
-    if ([400, 401, 403, 404, 422].includes(r.status)) return { outcome: "failed", id: null };
+    // Apenas rejeição definitiva de um envio interativo permite o menu alternativo.
+    // Uma aceitação pode ter chegado ao WhatsApp: nunca enviar fallback nesse caso.
+    if (formato === "buttons" && [400, 404, 405, 415, 422].includes(r.status))
+      return { outcome: "unsupported", id: null };
+    if ([400, 401, 403, 404, 405, 413, 415, 422].includes(r.status))
+      return { outcome: "failed", id: null };
     return { outcome: "unknown", id: null };
   } catch {
     return { outcome: "unknown", id: null };
@@ -236,7 +262,13 @@ export default {
       return responder(200, { ok: true, rate_limited: true });
     }
     const idem = "flowbot:" + (await hash(env.INSTANCE_NAME + ":" + event.id));
-    const result = await enviarGateway(env, event.contact, responseText, idem);
+    const usarBotoes = GATILHOS.has(event.input) && env.PILOT_INTERACTIVE_BUTTONS !== "0";
+    let result = usarBotoes
+      ? await enviarGateway(env, event.contact, { type: "buttons" }, idem + ":buttons")
+      : await enviarGateway(env, event.contact, { type: "text", text: responseText }, idem + ":text");
+    if (result.outcome === "unsupported") {
+      result = await enviarGateway(env, event.contact, { type: "text", text: responseText }, idem + ":text");
+    }
     await env.DB.prepare(
       "UPDATE pilot_events SET outcome = ?, provider_message_id = ? WHERE instance = ? AND event_id = ?",
     )
