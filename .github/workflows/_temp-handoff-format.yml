@@ -1,0 +1,29 @@
+name: Ajustar formatação handoff (temporário)
+on:
+  push:
+    branches:
+      - feat/flowbot-handoff-operador-seguro-20261123
+permissions:
+  contents: write
+jobs:
+  formatar:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Corrigir estilo e registrar no branch
+        run: |
+          npx prettier --write packages/server/src/config.ts packages/store-postgres/src/flowbot.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages/server/src/config.ts packages/store-postgres/src/flowbot.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style: formatar handoff humano"
+            git push origin HEAD:refs/heads/feat/flowbot-handoff-operador-seguro-20261123
+          fi
