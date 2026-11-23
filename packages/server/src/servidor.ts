@@ -13,11 +13,6 @@ import type { AdaptadorDeSaida, FlowBot } from "@flow-bot/store-postgres";
 import type pg from "pg";
 
 import type { ConfigDoServidor } from "./config.js";
-import {
-  gerarRascunhoClaude,
-  reservarPedidoClaude,
-  validarSolicitacaoClaude,
-} from "./claude-gateway.js";
 
 const CORPO_MAXIMO = 1024 * 1024;
 
@@ -51,7 +46,6 @@ export function criarServidor(p: {
   pool: pg.Pool;
   adaptador: AdaptadorDeSaida;
   registro?: Registro;
-  claudeFetch?: typeof fetch;
 }): Server {
   const log: Registro = p.registro ?? (() => undefined);
   const porInstancia = new Map(p.cfg.workspaces.map((w) => [w.instance, w]));
@@ -63,50 +57,6 @@ export function criarServidor(p: {
         await p.pool.query("SELECT 1");
         return responder(res, 200, { ok: true });
       }
-      // Rota Claude: somente rascunho para operador autenticado. Não envia WhatsApp.
-      if (req.method === "POST" && caminho === "/ops/ai/claude/draft") {
-        const data = await lerCorpo(req);
-        if (data === null) return responder(res, 413, { erro: "corpo_grande_demais" });
-        let input: unknown;
-        try {
-          input = JSON.parse(data);
-        } catch {
-          return responder(res, 400, { erro: "json_invalido" });
-        }
-        const pedido = validarSolicitacaoClaude(input);
-        if (!pedido) return responder(res, 400, { erro: "solicitacao_invalida" });
-        const operador = p.cfg.tokensOperadores.get(pedido.workspaceId);
-        const cabecalho = req.headers["authorization"];
-        const recebido =
-          typeof cabecalho === "string" && cabecalho.startsWith("Bearer ")
-            ? cabecalho.slice(7)
-            : "";
-        if (!operador || !recebido || !igual(recebido, operador))
-          return responder(res, 401, { erro: "nao_autorizado" });
-        const w = p.cfg.workspaces.find((item) => item.id === pedido.workspaceId);
-        if (!p.cfg.claude.enabled || !w?.claudeEnabled)
-          return responder(res, 503, { erro: "claude_desabilitado" });
-        const quota = await reservarPedidoClaude(
-          p.pool,
-          pedido.workspaceId,
-          pedido.requestKey,
-          p.cfg.claude.dailyLimit,
-        );
-        if (quota === "duplicate")
-          return responder(res, 409, { erro: "claude_solicitacao_duplicada" });
-        if (quota === "limit") return responder(res, 429, { erro: "claude_cota_diaria_atingida" });
-        const result = await gerarRascunhoClaude(p.cfg.claude, pedido, p.claudeFetch);
-        // Logs contêm somente workspace e contadores: nunca mensagem, rascunho ou token.
-        log("claude_rascunho", {
-          workspace: pedido.workspaceId,
-          ok: result.ok,
-          ...(result.ok
-            ? { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens }
-            : {}),
-        });
-        return responder(res, result.ok ? 200 : result.status, result);
-      }
-
       // Operações humanas são autenticadas por workspace e não pelo segredo do webhook.
       // Nenhuma ação de atendente usa o token de envio da Evolution.
       if (
