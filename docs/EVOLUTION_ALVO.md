@@ -8,7 +8,7 @@
 - Projeto **FlowBot** cadastrado isoladamente, mas ainda sem pareamento, sem token provisionado.
 - A saída do gateway usa POST /v1/messages/text, Authorization: Bearer (token exclusivo por projeto) e Idempotency-Key estável, aceitando 202 com status accepted. Aceite NÃO comprova entrega ou leitura WhatsApp.
 - GET /v1/connection consulta o estado do projeto autorizado pelo token. O endpoint de gateway **não gerencia webhooks**.
-- Entrada no motor Node.js continua via POST /webhooks/evolution, segredo x-webhook-secret, evento messages.upsert e instância mapeada para workspace.
+- Entrada no motor Node.js continua via POST /webhooks/evolution, segredo x-webhook-secret **exclusivo por instância** (webhookSecretEnv), evento messages.upsert e instância mapeada para workspace.
 
 ## Instalação de teste
 
@@ -24,9 +24,10 @@
 ## Segurança
 
 - EVOLUTION_PROVIDER=alvo ativa o adaptador de saída para gateway; o padrão direct preserva a integração nativa.
-- Cada workspace exige evolutionTokenEnv apontando para sua própria variável de ambiente. Token repetido entre workspaces é recusado.
+- Cada workspace exige evolutionTokenEnv e webhookSecretEnv apontando para variáveis privadas distintas. Tokens de gateway ou segredos de webhook compartilhados entre workspaces são recusados.
+- O serviço autentica o evento pela instância declarada antes do roteamento; o segredo global e o cabeçalho apikey não autorizam eventos no modo alvo. Configurar o segredo da instância na Evolution nativa Oracle, **sem afetar as demais instâncias**.
 - A chave idempotente é SHA-256([workspaceId, chaveDaOutbox]); não muda após retry/restart.
 - Resposta unknown (ou timeout) deve ser **reconciliada com a mesma chave**. Nunca emitir segunda mensagem com nova chave. A aplicação ainda não implementa conciliação final de entrega.
 - O comando ligar-webhook é bloqueado no modo alvo para não executar a chamada incorreta da Evolution nativa no gateway.
-- P0 pendente: distinção de fromMe humano versus bot, handoff que para pendências em voo, segredo do webhook por conexão, LID, retries e reconciliação unknown, testes de ponta a ponta reais.
+- P0 pendente: distinção de fromMe humano versus bot, handoff em homologação, implantação real do segredo por instância, LID, retries e reconciliação unknown, testes de ponta a ponta reais.
 - Sem disparos automáticos de prospecção. Nenhum sistema relacionado foi publicado ou alterado.

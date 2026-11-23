@@ -104,11 +104,6 @@ export function criarServidor(p: {
       if (req.method !== "POST" || caminho !== "/webhooks/evolution")
         return responder(res, 404, { erro: "nao_encontrado" });
 
-      const segredo = String(req.headers["x-webhook-secret"] ?? req.headers["apikey"] ?? "");
-      if (!segredo || !igual(segredo, p.cfg.evolution.webhookSecret)) {
-        log("webhook_recusado", { motivo: "segredo" });
-        return responder(res, 401, { erro: "nao_autorizado" });
-      }
       const texto = await lerCorpo(req);
       if (texto === null) return responder(res, 413, { erro: "corpo_grande_demais" });
       let corpo: unknown;
@@ -116,6 +111,29 @@ export function criarServidor(p: {
         corpo = JSON.parse(texto);
       } catch {
         return responder(res, 400, { erro: "json_invalido" });
+      }
+      // O identificador de instância vindo do corpo é apenas seletor da credencial,
+      // jamais uma autorização. Validar o segredo ANTES de interpretar o evento.
+      const entrada =
+        corpo && typeof corpo === "object" && !Array.isArray(corpo)
+          ? (corpo as Record<string, unknown>)
+          : {};
+      const instancia = typeof entrada["instance"] === "string" ? entrada["instance"] : "";
+      const workspaceDaInstancia = porInstancia.get(instancia);
+      const esperado = workspaceDaInstancia
+        ? (p.cfg.webhookSecrets.get(workspaceDaInstancia.id) ??
+          (p.cfg.evolution.provider === "direct" ? p.cfg.evolution.webhookSecret : null))
+        : null;
+      const cabecalhoWebhook = req.headers["x-webhook-secret"];
+      const recebido =
+        typeof cabecalhoWebhook === "string"
+          ? cabecalhoWebhook
+          : p.cfg.evolution.provider === "direct" && typeof req.headers["apikey"] === "string"
+            ? req.headers["apikey"]
+            : "";
+      if (!esperado || !recebido || !igual(recebido, esperado)) {
+        log("webhook_recusado", { motivo: "credencial_da_instancia" });
+        return responder(res, 401, { erro: "nao_autorizado" });
       }
 
       // 'fromMe' não comprova atendimento humano: pode ser eco do próprio bot.
