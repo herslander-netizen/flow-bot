@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import type { FlowBot } from "@flow-bot/store-postgres";
