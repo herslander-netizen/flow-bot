@@ -138,6 +138,27 @@ export default {
         enabled: env.PILOT_ENABLED === "1",
       });
     }
+    if (request.method === "GET" && path === "/connection-status") {
+      if (!env.EVOLUTION_ALVO_TOKEN) return responder(503, { ok: false, reason: "no_token" });
+      try {
+        const upstream = await fetch(URL_GATEWAY + "/v1/connection", {
+          headers: { authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN, accept: "application/json" },
+          redirect: "error",
+          signal: AbortSignal.timeout(6000),
+        });
+        const value = await upstream.json().catch(() => null);
+        const state = ["open", "close", "connecting", "unconfigured"].includes(value?.state)
+          ? value.state
+          : "unknown";
+        return responder(upstream.ok ? 200 : 502, {
+          ok: upstream.ok,
+          state: upstream.ok ? state : "unknown",
+          upstreamStatus: upstream.status,
+        });
+      } catch {
+        return responder(503, { ok: false, reason: "upstream_unavailable" });
+      }
+    }
     if (path !== "/webhooks/evolution") return responder(404, { error: "not_found" });
     if (request.method !== "POST") return responder(405, { error: "method_not_allowed" });
     if (!env.DB || !env.INSTANCE_NAME || !env.WEBHOOK_SECRET ||
