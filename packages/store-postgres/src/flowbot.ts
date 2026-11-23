@@ -486,7 +486,9 @@ export class FlowBot {
   }
 
   /** Pendências de envio incerto, apenas para console administrativo autenticado. */
-  async enviosIncertos(workspaceId: string): Promise<
+  async enviosIncertos(
+    workspaceId: string,
+  ): Promise<
     { id: string; conversation_key: string; idempotency_key: string; last_error: string | null }[]
   > {
     const r = await this.pool.query<{

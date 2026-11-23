@@ -17,7 +17,7 @@ A Evolution Alvo pode aceitar um pedido de envio sem conseguir demonstrar seu re
 
 ## Limites e provas exigidas
 
-Este mecanismo é *fail closed*: evita novas mensagens quando uma resposta é incerta, mas não consegue afirmar se ela chegou no WhatsApp. Não confundir `accepted` com `delivered`.
+Este mecanismo é _fail closed_: evita novas mensagens quando uma resposta é incerta, mas não consegue afirmar se ela chegou no WhatsApp. Não confundir `accepted` com `delivered`.
 
 **Situação de queda do processo:** se ele cair depois do envio externo e antes de gravar `delivery_uncertain`, a saída ainda poderá ser retomada com **a mesma chave idempotente** após o vencimento do lease. Essa proteção depende de o gateway manter a deduplicação por chave após reinicialização. Validar isso com a Evolution Alvo antes de produção.
 
