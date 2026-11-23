@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "schema": "npm run schema --workspace @flow-bot/contracts",
+    "autor:claude": "node packages/server/bin/claude-author.mjs",
     "simular": "tsc -b packages/contracts packages/runtime && node packages/runtime/bin/simular.mjs",
     "simular:flow": "npm run simular -- presets/flow/atendimento.json presets/flow/atendimento.cenarios.json presets/flow/perfil.json"
   },
