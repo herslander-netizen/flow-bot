@@ -45,6 +45,14 @@ const scenarios = {
     },
   ],
 };
+const independentScenarios = {
+  scenarios: [
+    {
+      name: "Saudação independente do operador",
+      steps: [{ say: "bom dia", expect: { contains: ["bem-vindo"] } }],
+    },
+  ],
+};
 const resultRaw = {
   flow_json: JSON.stringify(flow),
   scenarios_json: JSON.stringify(scenarios),
@@ -82,12 +90,38 @@ describe("Oficina multiagente: Claude produz, validadores controlam", () => {
   });
 
   it("agentes validam o grafo e simulam sem canal nem publicação", () => {
-    const reviewed = revisarPropostaDosAgentes(resultRaw);
+    const reviewed = revisarPropostaDosAgentes(resultRaw, undefined, undefined, independentScenarios);
     expect(reviewed.status).toBe("ready_for_review");
+    expect(reviewed.checkedAgainstIndependentTests).toBe(true);
+    expect(reviewed.independentTests).toHaveLength(1);
     expect(reviewed.flow?.flow.status).toBe("draft");
     expect(reviewed.tests).toEqual([{ name: "Saudação simulada", ok: true, failures: [] }]);
     expect(reviewed.approved).toBe(false);
     expect(reviewed.published).toBe(false);
+  });
+
+  it("não promove proposta validada apenas com cenários criados pela própria IA", () => {
+    const reviewed = revisarPropostaDosAgentes(resultRaw);
+    expect(reviewed.tests).toHaveLength(1);
+    expect(reviewed.tests[0]?.ok).toBe(true);
+    expect(reviewed.status).toBe("requires_revision");
+    expect(reviewed.checkedAgainstIndependentTests).toBe(false);
+    expect(reviewed.approved).toBe(false);
+    expect(reviewed.published).toBe(false);
+  });
+
+  it("revisão independente precisa testar resultado verificável", () => {
+    const empty = revisarPropostaDosAgentes(resultRaw, undefined, undefined, {
+      scenarios: [{ name: "Sem assertivas", steps: [{ say: "oi" }] }],
+    });
+    expect(empty.status).toBe("requires_revision");
+    expect(empty.problems.some((p) => p.path === "reviewerScenarios")).toBe(true);
+    const wrong = revisarPropostaDosAgentes(resultRaw, undefined, undefined, {
+      scenarios: [{ name: "Resposta incorreta", steps: [{ say: "oi", expect: { contains: ["R$ 999"] } }] }],
+    });
+    expect(wrong.checkedAgainstIndependentTests).toBe(false);
+    expect(wrong.independentTests[0]?.ok).toBe(false);
+    expect(wrong.status).toBe("requires_revision");
   });
 
   it("rejeita tentativas do modelo de publicar fluxo", () => {
@@ -145,7 +179,11 @@ describe("Oficina multiagente: Claude produz, validadores controlam", () => {
     const mock = vi.fn(async () => successful());
     const out = await criarPropostaComClaude(cfg, input, mock);
     expect(out.ok).toBe(true);
-    if (out.ok) expect(out.proposal.status).toBe("ready_for_review");
+    if (out.ok) {
+      expect(out.proposal.status).toBe("requires_revision");
+      expect(out.proposal.checkedAgainstIndependentTests).toBe(false);
+      expect(out.proposal.approved).toBe(false);
+    }
     expect(mock).toHaveBeenCalledOnce();
     const [url, opts] = mock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.anthropic.com/v1/messages");
