@@ -126,6 +126,11 @@ export function carregarConfig(
       tokensEvolution.set(w.id, valor);
     }
   }
+  for (const w of lista.data.workspaces) {
+    const operador = tokensOperadores.get(w.id);
+    if (operador && (operador === tokens.get(w.id) || operador === tokensEvolution.get(w.id)))
+      throw new ConfigInvalida("Token do operador não pode reutilizar credenciais de sistemas.");
+  }
   return {
     porta: Number(env["PORT"] ?? 8080),
     databaseUrl: env["DATABASE_URL"] ?? "",
