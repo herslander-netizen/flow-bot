@@ -82,19 +82,26 @@ describe("Gateway Claude - validação e saída", () => {
   });
 
   it("descarta resposta truncada e JSON não validado", async () => {
-    const truncated = vi.fn(async () => new Response(
-      JSON.stringify({
-        stop_reason: "max_tokens",
-        content: [{ type: "text", text: JSON.stringify({ draft: "truncado", needsHuman: false }) }],
-      }),
-      { status: 200 },
-    ));
+    const truncated = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            stop_reason: "max_tokens",
+            content: [
+              { type: "text", text: JSON.stringify({ draft: "truncado", needsHuman: false }) },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
     expect(await gerarRascunhoClaude(cfg, evento, truncated)).toMatchObject({
-      ok: false, error: "claude_resposta_incompleta",
+      ok: false,
+      error: "claude_resposta_incompleta",
     });
     const invalid = vi.fn(async () => claudeFake({ draft: "x".repeat(601), needsHuman: false }));
     expect(await gerarRascunhoClaude(cfg, evento, invalid)).toMatchObject({
-      ok: false, error: "claude_rascunho_invalido",
+      ok: false,
+      error: "claude_rascunho_invalido",
     });
   });
 
@@ -106,11 +113,15 @@ describe("Gateway Claude - validação e saída", () => {
     expect(fake).toHaveBeenCalledOnce();
     const rate = vi.fn(async () => new Response("", { status: 429 }));
     expect(await gerarRascunhoClaude(cfg, evento, rate)).toMatchObject({
-      ok: false, status: 429,
+      ok: false,
+      status: 429,
     });
-    const network = vi.fn(async () => { throw new Error("network"); });
+    const network = vi.fn(async () => {
+      throw new Error("network");
+    });
     expect(await gerarRascunhoClaude(cfg, evento, network)).toMatchObject({
-      ok: false, error: "claude_rede_inconclusiva",
+      ok: false,
+      error: "claude_rede_inconclusiva",
     });
     expect(network).toHaveBeenCalledOnce();
   });
@@ -125,28 +136,38 @@ describe("Gateway Claude - validação e saída", () => {
       FLOWBOT_CLAUDE_ENABLED: "1",
     };
     const workspaces = {
-      workspaces: [{
-        id: "tenant-claude",
-        instance: "instancia",
-        flowId: "flow",
-        operatorTokenEnv: "OPERADOR",
-        claudeEnabled: true,
-      }],
+      workspaces: [
+        {
+          id: "tenant-claude",
+          instance: "instancia",
+          flowId: "flow",
+          operatorTokenEnv: "OPERADOR",
+          claudeEnabled: true,
+        },
+      ],
     };
     expect(() => carregarConfig(base, workspaces)).toThrow("ANTHROPIC_API_KEY");
-    const ready = carregarConfig({
-      ...base,
-      ANTHROPIC_API_KEY: "test-key",
-      FLOWBOT_CLAUDE_MODEL: cfg.model,
-    }, workspaces);
+    const ready = carregarConfig(
+      {
+        ...base,
+        ANTHROPIC_API_KEY: "test-key",
+        FLOWBOT_CLAUDE_MODEL: cfg.model,
+      },
+      workspaces,
+    );
     expect(ready.claude.enabled).toBe(true);
     expect(ready.workspaces[0]?.claudeEnabled).toBe(true);
-    expect(() => carregarConfig({
-      ...base,
-      ANTHROPIC_API_KEY: "test-key",
-      FLOWBOT_CLAUDE_MODEL: cfg.model,
-      FLOWBOT_CLAUDE_DAILY_LIMIT: "9999",
-    }, workspaces)).toThrow("Limites Claude");
+    expect(() =>
+      carregarConfig(
+        {
+          ...base,
+          ANTHROPIC_API_KEY: "test-key",
+          FLOWBOT_CLAUDE_MODEL: cfg.model,
+          FLOWBOT_CLAUDE_DAILY_LIMIT: "9999",
+        },
+        workspaces,
+      ),
+    ).toThrow("Limites Claude");
   });
 });
 
@@ -161,39 +182,48 @@ describe.skipIf(!process.env["DATABASE_URL"])("Gateway Claude - cota persistente
     pool = new pg.Pool({ connectionString: process.env["DATABASE_URL"], max: 4 });
     await migrar(pool);
     envWorkspace = "claude-" + randomUUID();
-    const serverCfg = carregarConfig({
-      DATABASE_URL: process.env["DATABASE_URL"],
-      EVOLUTION_URL: "https://evolution.exemplo",
-      EVOLUTION_API_KEY: "evo",
-      EVOLUTION_WEBHOOK_SECRET: "s".repeat(40),
-      OPERADOR: operador,
-      ANTHROPIC_API_KEY: "test-key",
-      FLOWBOT_CLAUDE_MODEL: cfg.model,
-      FLOWBOT_CLAUDE_ENABLED: "1",
-      FLOWBOT_CLAUDE_DAILY_LIMIT: "2",
-    }, {
-      workspaces: [{
-        id: envWorkspace,
-        instance: "instancia-" + envWorkspace,
-        flowId: "flow",
-        operatorTokenEnv: "OPERADOR",
-        claudeEnabled: true,
-      }],
-    });
+    const serverCfg = carregarConfig(
+      {
+        DATABASE_URL: process.env["DATABASE_URL"],
+        EVOLUTION_URL: "https://evolution.exemplo",
+        EVOLUTION_API_KEY: "evo",
+        EVOLUTION_WEBHOOK_SECRET: "s".repeat(40),
+        OPERADOR: operador,
+        ANTHROPIC_API_KEY: "test-key",
+        FLOWBOT_CLAUDE_MODEL: cfg.model,
+        FLOWBOT_CLAUDE_ENABLED: "1",
+        FLOWBOT_CLAUDE_DAILY_LIMIT: "2",
+      },
+      {
+        workspaces: [
+          {
+            id: envWorkspace,
+            instance: "instancia-" + envWorkspace,
+            flowId: "flow",
+            operatorTokenEnv: "OPERADOR",
+            claudeEnabled: true,
+          },
+        ],
+      },
+    );
     server = criarServidor({
       cfg: serverCfg,
       bot: {} as FlowBot,
       pool,
-      adaptador: async () => { throw new Error("Claude não pode enviar WhatsApp"); },
-      claudeFetch: vi.fn(async () => { chamadas++; return claudeFake(); }),
+      adaptador: async () => {
+        throw new Error("Claude não pode enviar WhatsApp");
+      },
+      claudeFetch: vi.fn(async () => {
+        chamadas++;
+        return claudeFake();
+      }),
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     address = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
   });
 
   afterAll(async () => {
-    await new Promise<void>((resolve, reject) =>
-      server.close((e) => e ? reject(e) : resolve()));
+    await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
     await pool.end();
   });
 
@@ -220,7 +250,9 @@ describe.skipIf(!process.env["DATABASE_URL"])("Gateway Claude - cota persistente
     const r = await solicitar("pedido-claude-00000001");
     expect(r.status).toBe(200);
     expect(await r.json()).toMatchObject({
-      ok: true, draft: "O corte custa R$ 40.", needsHuman: false,
+      ok: true,
+      draft: "O corte custa R$ 40.",
+      needsHuman: false,
     });
     expect(chamadas).toBe(1);
   });

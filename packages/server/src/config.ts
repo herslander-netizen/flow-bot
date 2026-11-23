@@ -118,11 +118,18 @@ export function carregarConfig(
   const dailyLimit = Number(env["FLOWBOT_CLAUDE_DAILY_LIMIT"] ?? 5);
   const maxOutputTokens = Number(env["FLOWBOT_CLAUDE_MAX_OUTPUT_TOKENS"] ?? 256);
   if (
-    !Number.isInteger(dailyLimit) || dailyLimit < 1 || dailyLimit > 100 ||
-    !Number.isInteger(maxOutputTokens) || maxOutputTokens < 64 || maxOutputTokens > 1024
-  ) throw new ConfigInvalida("Limites Claude inválidos.");
+    !Number.isInteger(dailyLimit) ||
+    dailyLimit < 1 ||
+    dailyLimit > 100 ||
+    !Number.isInteger(maxOutputTokens) ||
+    maxOutputTokens < 64 ||
+    maxOutputTokens > 1024
+  )
+    throw new ConfigInvalida("Limites Claude inválidos.");
   if (claudeEnabled && (!claudeKey || !/^[a-z0-9-]{6,100}$/.test(claudeModel)))
-    throw new ConfigInvalida("Para habilitar Claude, defina ANTHROPIC_API_KEY e FLOWBOT_CLAUDE_MODEL.");
+    throw new ConfigInvalida(
+      "Para habilitar Claude, defina ANTHROPIC_API_KEY e FLOWBOT_CLAUDE_MODEL.",
+    );
   const tokens = new Map<string, string>();
   const tokensEvolution = new Map<string, string>();
   const vistosEvolution = new Set<string>();

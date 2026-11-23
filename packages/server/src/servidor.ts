@@ -13,7 +13,11 @@ import type { AdaptadorDeSaida, FlowBot } from "@flow-bot/store-postgres";
 import type pg from "pg";
 
 import type { ConfigDoServidor } from "./config.js";
-import { gerarRascunhoClaude, reservarPedidoClaude, validarSolicitacaoClaude } from "./claude-gateway.js";
+import {
+  gerarRascunhoClaude,
+  reservarPedidoClaude,
+  validarSolicitacaoClaude,
+} from "./claude-gateway.js";
 
 const CORPO_MAXIMO = 1024 * 1024;
 
@@ -64,33 +68,41 @@ export function criarServidor(p: {
         const data = await lerCorpo(req);
         if (data === null) return responder(res, 413, { erro: "corpo_grande_demais" });
         let input: unknown;
-        try { input = JSON.parse(data); }
-        catch { return responder(res, 400, { erro: "json_invalido" }); }
+        try {
+          input = JSON.parse(data);
+        } catch {
+          return responder(res, 400, { erro: "json_invalido" });
+        }
         const pedido = validarSolicitacaoClaude(input);
         if (!pedido) return responder(res, 400, { erro: "solicitacao_invalida" });
         const operador = p.cfg.tokensOperadores.get(pedido.workspaceId);
         const cabecalho = req.headers["authorization"];
-        const recebido = typeof cabecalho === "string" && cabecalho.startsWith("Bearer ")
-          ? cabecalho.slice(7)
-          : "";
+        const recebido =
+          typeof cabecalho === "string" && cabecalho.startsWith("Bearer ")
+            ? cabecalho.slice(7)
+            : "";
         if (!operador || !recebido || !igual(recebido, operador))
           return responder(res, 401, { erro: "nao_autorizado" });
         const w = p.cfg.workspaces.find((item) => item.id === pedido.workspaceId);
         if (!p.cfg.claude.enabled || !w?.claudeEnabled)
           return responder(res, 503, { erro: "claude_desabilitado" });
         const quota = await reservarPedidoClaude(
-          p.pool, pedido.workspaceId, pedido.requestKey, p.cfg.claude.dailyLimit,
+          p.pool,
+          pedido.workspaceId,
+          pedido.requestKey,
+          p.cfg.claude.dailyLimit,
         );
-        if (quota === "duplicate") return responder(res, 409, { erro: "claude_solicitacao_duplicada" });
+        if (quota === "duplicate")
+          return responder(res, 409, { erro: "claude_solicitacao_duplicada" });
         if (quota === "limit") return responder(res, 429, { erro: "claude_cota_diaria_atingida" });
-        const result = await gerarRascunhoClaude(
-          p.cfg.claude, pedido, p.claudeFetch,
-        );
+        const result = await gerarRascunhoClaude(p.cfg.claude, pedido, p.claudeFetch);
         // Logs contêm somente workspace e contadores: nunca mensagem, rascunho ou token.
         log("claude_rascunho", {
           workspace: pedido.workspaceId,
           ok: result.ok,
-          ...(result.ok ? { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens } : {}),
+          ...(result.ok
+            ? { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens }
+            : {}),
         });
         return responder(res, result.ok ? 200 : result.status, result);
       }
