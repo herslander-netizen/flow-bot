@@ -79,7 +79,7 @@ export function criarServidor(p: {
         if (
           typeof workspaceId !== "string" ||
           typeof conversationKey !== "string" ||
-          !/^\\d{10,15}$/.test(conversationKey)
+          !/^\d{10,15}$/.test(conversationKey)
         )
           return responder(res, 400, { erro: "parametros_invalidos" });
         const segredoOperador = p.cfg.tokensOperadores.get(workspaceId);
