@@ -34,6 +34,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Diagnóstico de formatação do gateway (temporário)
+        run: |
+          cp packages/channel-evolution/src/gateway-alvo.ts /tmp/gateway-original.ts
+          npx prettier --write packages/channel-evolution/src/gateway-alvo.ts
+          diff -u /tmp/gateway-original.ts packages/channel-evolution/src/gateway-alvo.ts || true
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
