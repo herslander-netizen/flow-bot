@@ -108,20 +108,44 @@ describe("saída", () => {
     );
   });
 
-  it("erro HTTP e falha de rede viram falha (para nova tentativa)", async () => {
+  it("distingue rejeição explícita de erro de rede ambíguo", async () => {
     const http = vi.fn(async () => new Response("instância desconectada", { status: 400 }));
     expect(
       await enviarTexto({ url: "https://evo", apiKey: "k", fetch: http }, "i", "1", "x"),
     ).toEqual({
       ok: false,
-      erro: "evolution_http_400: instância desconectada",
+      erro: "evolution_http_400",
     });
     const rede = vi.fn(async () => {
       throw new Error("ECONNREFUSED");
     });
     const r = await enviarTexto({ url: "https://evo", apiKey: "k", fetch: rede }, "i", "1", "x");
-    expect(r.ok).toBe(false);
-    expect(r.erro).toContain("evolution_rede");
+    expect(r).toEqual({ ok: false, incerto: true, erro: "evolution_incerto_rede" });
+  });
+  it.each([
+    [201, "{}", "evolution_incerto_sem_id"],
+    [201, "{", "evolution_incerto_sem_id"],
+    [201, '{"key":{"id":" "}}', "evolution_incerto_sem_id"],
+    [408, "x", "evolution_incerto_http_408"],
+    [502, "x", "evolution_incerto_http_502"],
+  ])("resposta %s inconclusiva não autoriza reenvio", async (status, body, erro) => {
+    const fetch = vi.fn(async () => new Response(body, { status }));
+    expect(await enviarTexto({ url: "https://evo", apiKey: "k", fetch }, "i", "1", "x")).toEqual({
+      ok: false,
+      incerto: true,
+      erro,
+    });
+  });
+
+  it("prazo vencido é distinto de rejeição explícita", async () => {
+    const fetch = vi.fn(async () => {
+      throw new DOMException("fixture", "TimeoutError");
+    });
+    expect(await enviarTexto({ url: "https://evo", apiKey: "k", fetch }, "i", "1", "x")).toEqual({
+      ok: false,
+      incerto: true,
+      erro: "evolution_incerto_timeout",
+    });
   });
 });
 

@@ -13,7 +13,7 @@ export type ConfigDaEvolution = {
   fetch?: typeof fetch;
 };
 
-export type ResultadoDoEnvio = { ok: boolean; id?: string; erro?: string };
+export type ResultadoDoEnvio = { ok: boolean; id?: string; erro?: string; incerto?: true };
 
 /** Texto que o cliente vê para uma ação de mensagem; `null` = ação que não vai para o cliente. */
 export function textoParaOCliente(acao: Acao): string | null {
@@ -38,23 +38,27 @@ export async function enviarTexto(
         headers: { "content-type": "application/json", apikey: cfg.apiKey },
         body: JSON.stringify({ number: telefone.replace(/\D/g, ""), text: texto }),
         signal: AbortSignal.timeout(cfg.timeoutMs ?? 15_000),
+        redirect: "error",
       },
     );
     if (!r.ok) {
-      const corpo = await r.text().catch(() => "");
-      return {
-        ok: false,
-        erro: `evolution_http_${r.status}${corpo ? `: ${corpo.slice(0, 200)}` : ""}`,
-      };
+      // Só rejeições explícitas anteriores ao envio são tratadas como falha conhecida.
+      if ([400, 401, 403, 404, 405, 413, 415, 422].includes(r.status)) {
+        return { ok: false, erro: `evolution_http_${r.status}` };
+      }
+      return { ok: false, incerto: true, erro: `evolution_incerto_http_${r.status}` };
     }
-    const json = (await r.json().catch(() => ({}))) as { key?: { id?: unknown } };
-    const id = typeof json.key?.id === "string" ? json.key.id : undefined;
-    return id ? { ok: true, id } : { ok: true };
+    const json = (await r.json().catch(() => null)) as { key?: { id?: unknown } } | null;
+    const id = json?.key?.id;
+    return typeof id === "string" && id.trim()
+      ? { ok: true, id }
+      : { ok: false, incerto: true, erro: "evolution_incerto_sem_id" };
   } catch (erro) {
     const nome = erro instanceof Error ? erro.name : "";
     return {
       ok: false,
-      erro: nome === "TimeoutError" ? "evolution_timeout" : `evolution_rede: ${String(erro)}`,
+      incerto: true,
+      erro: nome === "TimeoutError" ? "evolution_incerto_timeout" : "evolution_incerto_rede",
     };
   }
 }
