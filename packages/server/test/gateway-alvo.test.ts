@@ -10,12 +10,14 @@ const workspaceA = {
   instance: "alvo-tenant-a",
   flowId: "atendimento",
   evolutionTokenEnv: "EVO_TOKEN_A",
+  webhookSecretEnv: "WEBHOOK_A",
 };
 const workspaceB = {
   id: "tenant-b",
   instance: "alvo-tenant-b",
   flowId: "atendimento",
   evolutionTokenEnv: "EVO_TOKEN_B",
+  webhookSecretEnv: "WEBHOOK_B",
 };
 const ambiente = {
   DATABASE_URL: "postgres://test",
@@ -24,6 +26,8 @@ const ambiente = {
   EVOLUTION_WEBHOOK_SECRET: s,
   EVO_TOKEN_A: "token-de-a-separado",
   EVO_TOKEN_B: "token-de-b-separado",
+  WEBHOOK_A: "a".repeat(40),
+  WEBHOOK_B: "b".repeat(40),
 };
 
 describe("saída por projeto na Evolution Alvo", () => {
@@ -33,6 +37,8 @@ describe("saída por projeto na Evolution Alvo", () => {
     expect(cfg.tokensEvolution.get("tenant-a")).toBe("token-de-a-separado");
     expect(cfg.tokensEvolution.get("tenant-b")).toBe("token-de-b-separado");
     expect(cfg.evolution.apiKey).toBe("");
+    expect(cfg.webhookSecrets.get("tenant-a")).toBe(ambiente.WEBHOOK_A);
+    expect(cfg.webhookSecrets.get("tenant-b")).toBe(ambiente.WEBHOOK_B);
   });
 
   it("recusa segredo ausente, configuração sem token e token compartilhado entre tenants", () => {
@@ -51,6 +57,32 @@ describe("saída por projeto na Evolution Alvo", () => {
     expect(() =>
       carregarConfig({ ...ambiente, EVOLUTION_PROVIDER: "invalido" }, { workspaces: [workspaceA] }),
     ).toThrow("EVOLUTION_PROVIDER");
+  });
+
+  it("exige segredo inbound por instância e rejeita compartilhamento entre empresas", () => {
+    expect(() =>
+      carregarConfig(ambiente, {
+        workspaces: [{ ...workspaceA, webhookSecretEnv: undefined }],
+      }),
+    ).toThrow("requer webhookSecretEnv");
+    expect(() =>
+      carregarConfig(
+        { ...ambiente, WEBHOOK_A: "curto" },
+        { workspaces: [workspaceA] },
+      ),
+    ).toThrow("exige 32 caracteres");
+    expect(() =>
+      carregarConfig(
+        { ...ambiente, WEBHOOK_B: ambiente.WEBHOOK_A },
+        { workspaces: [workspaceA, workspaceB] },
+      ),
+    ).toThrow("segredo próprio");
+    expect(() =>
+      carregarConfig(
+        { ...ambiente, WEBHOOK_A: ambiente.EVO_TOKEN_A },
+        { workspaces: [workspaceA] },
+      ),
+    ).toThrow("exige 32 caracteres");
   });
 
   it("isola credenciais e gera idempotência imutável por workspace + ação", async () => {
