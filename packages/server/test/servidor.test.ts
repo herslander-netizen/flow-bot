@@ -246,6 +246,38 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
     expect(enviados.length).toBe(antes);
   });
 
+  it("identifica eco conhecido do bot sem tratar fromMe desconhecido como humano", async () => {
+    const numero = "5582999990000";
+    const ids = await pool.query<{ provider_message_id: string }>(
+      `SELECT provider_message_id FROM flow_bot.outbound
+         WHERE workspace_id = $1 AND conversation_key = $2
+           AND provider_message_id IS NOT NULL
+         ORDER BY id DESC LIMIT 1`,
+      [ws, numero],
+    );
+    expect(ids.rows.length).toBeGreaterThan(0);
+    const antes = (await bot.sessao(ws, numero))?.session.status;
+    const eco = await avisar("eco do bot", {
+      fromMe: true,
+      id: ids.rows[0]!.provider_message_id,
+      telefone: numero,
+    });
+    expect(await eco.json()).toMatchObject({
+      ignorado: "enviada_pelo_proprio_numero",
+      proveniencia: "bot_confirmado",
+    });
+    const indeterminado = await avisar("operador ou outro sistema?", {
+      fromMe: true,
+      id: "ID_NAO_CORRELACIONADO",
+      telefone: numero,
+    });
+    expect(await indeterminado.json()).toMatchObject({
+      ignorado: "enviada_pelo_proprio_numero",
+      proveniencia: "indeterminada",
+    });
+    expect((await bot.sessao(ws, numero))?.session.status).toBe(antes);
+  });
+
   it("a realidade muda a resposta e o encaminhamento avisa o sistema", async () => {
     aberto = false;
     await avisar("vocês estão abertos?");
