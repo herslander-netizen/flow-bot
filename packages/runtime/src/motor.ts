@@ -358,6 +358,7 @@ function passo(x: Execucao, no: NoDoPlano): Saida {
         url: c.url,
         method: c.method,
         timeoutMs: c.timeoutMs,
+        ...(c.retries !== undefined ? { retries: c.retries } : {}),
       });
       x.passos.push({ nodeId: no.id, type: no.type, detalhe: "aguardando_webhook" });
       return { parar: "suspensa" };

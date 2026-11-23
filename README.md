@@ -27,11 +27,16 @@ A IA pode ajudar a transformar documentos, tabelas de preços, serviços, horár
 - Não será incorporado ao repositório ou banco de dados do Flow nesta fase.
 - Não copiará código, identidade visual, textos ou recursos protegidos do AutoResponder ou de outros projetos.
 
-## Estado atual (Etapas A–C)
+## Estado atual (código existente; prontidão comercial ainda não comprovada)
 
-- `packages/contracts` (`@flow-bot/contracts`): formato `flow-bot/v0`, catálogo inicial de nós, validador sintático e
-  semântico, RegEx segura e JSON Schema formal em `packages/contracts/schema/flow-bot-v0.schema.json`.
-- Sem runtime, sem interface, sem canal real, sem IA e sem envio de mensagens.
+- `@flow-bot/contracts`: DSL `flow-bot/v0`, validador, catálogo de nós e JSON Schema.
+- `@flow-bot/runtime`: motor determinístico, sessões e simulador de cenários.
+- `@flow-bot/store-postgres`: PostgreSQL, histórico, filas, expiração e controle de eventos duplicados.
+- `@flow-bot/channel-evolution` e `@flow-bot/server`: adaptador WhatsApp e serviço HTTP.
+- **Ainda pendente:** homologação ponta a ponta, reconciliação de mensagens após falha, identificação segura
+  de intervenção humana, autenticação por instância, proteção completa SSRF e operação multiempresa.
+- Não há Bot Studio/PWA ou IA integrada ao runtime neste repositório. A execução comercial depende do
+  checklist em `docs/PLANO_COMERCIAL_FLOWBOT_2026-11.md`.
 
 ```sh
 npm ci
@@ -56,7 +61,7 @@ realidade ao seu sistema por HTTP e responde. Qualquer sistema se liga implement
 ## Realidade e presets
 
 O fluxo lê os fatos do sistema hospedeiro pelo namespace `reality.*` (`docs/REALITY.md`). O primeiro perfil é o do
-Flow (`presets/flow`): `npm run simular:flow` roda os 18 cenários do atendimento.
+Flow (`presets/flow`): `npm run simular:flow` roda os 21 cenários do atendimento.
 
 ## Estrutura documental
 
@@ -73,7 +78,7 @@ Flow (`presets/flow`): `npm run simular:flow` roda os 18 cenários do atendiment
 - `packages/contracts/README.md` — catálogo de nós e códigos de erro do validador.
 - `prompts/CLAUDE_CODE_BOOTSTRAP.md` — instruções para preparar o repositório público e começar pelo MVP.
 
-## Repositório pretendido
+## Repositório atual
 
 https://github.com/herslander-netizen/flow-bot
 

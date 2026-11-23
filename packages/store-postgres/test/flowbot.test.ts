@@ -306,6 +306,58 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     expect(await c.bot.retomarAtendimento(c.ws, "c1")).toBe(false);
   });
 
+  it("webhook executa as tentativas configuradas antes de devolver o resultado", async () => {
+    const c = cenario();
+    const doc = menu();
+    doc.nodes[1] = {
+      id: "ola",
+      type: "action.webhook",
+      config: {
+        url: "https://exemplo.com/webhook",
+        method: "POST",
+        timeoutMs: 1000,
+        retries: 2,
+      },
+    };
+    doc.edges.find((e: { id: string }) => e.id === "e2").port = "success";
+    doc.edges.push({ id: "e2-failure", from: "ola", to: "menu", port: "failure" });
+
+    await c.bot.publicar(c.ws, doc);
+    await c.dizer("oi");
+
+    const chaves: string[] = [];
+    const adaptador: AdaptadorDeSaida = async ({ chave, acao }) => {
+      expect(acao.type).toBe("webhook");
+      chaves.push(chave);
+      return chaves.length === 3 ? { ok: true } : { ok: false, erro: "erro_transitorio" };
+    };
+
+    expect(await c.bot.entregarPendentes(adaptador, { workspaceId: c.ws })).toBe(1);
+    const primeira = await pool.query(
+      "SELECT status, attempts FROM flow_bot.outbound WHERE workspace_id = $1",
+      [c.ws],
+    );
+    expect(primeira.rows).toEqual([{ status: "pending", attempts: 1 }]);
+
+    c.avancar(5);
+    expect(await c.bot.entregarPendentes(adaptador, { workspaceId: c.ws })).toBe(1);
+    c.avancar(10);
+    expect(await c.bot.entregarPendentes(adaptador, { workspaceId: c.ws })).toBe(1);
+
+    expect(chaves).toHaveLength(3);
+    expect(new Set(chaves).size).toBe(1);
+    const final = await pool.query(
+      "SELECT status, attempts FROM flow_bot.outbound WHERE workspace_id = $1",
+      [c.ws],
+    );
+    expect(final.rows).toEqual([{ status: "sent", attempts: 3 }]);
+    const resultado = await pool.query(
+      "SELECT status, ok FROM flow_bot.webhook_results WHERE workspace_id = $1",
+      [c.ws],
+    );
+    expect(resultado.rows).toEqual([{ status: "pending", ok: true }]);
+  });
+
   it("webhook: o resultado da entrega volta para a conversa", async () => {
     const c = cenario();
     const doc = {

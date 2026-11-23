@@ -365,8 +365,23 @@ export class FlowBot {
       } catch (erro) {
         resultado = { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
       }
-      const webhook = item.action.type === "webhook";
-      if (webhook) {
+      if (item.action.type === "webhook") {
+        // "retries" conta tentativas adicionais. maxTentativas é o teto operacional global.
+        // Só devolvemos failure ao fluxo quando todas as tentativas permitidas terminarem.
+        const maxEnvios = Math.min(this.maxTentativas, 1 + (item.action.retries ?? 0));
+        if (!resultado.ok && item.attempts < maxEnvios) {
+          await this.pool.query(
+            `UPDATE flow_bot.outbound
+                SET status = 'pending', next_attempt_at = $2, locked_until = NULL, last_error = $3
+              WHERE id = $1 AND status = 'sending'`,
+            [
+              item.id,
+              new Date(this.agora().getTime() + esperaDaTentativa(item.attempts)),
+              resultado.erro?.slice(0, 500) ?? "falha_sem_detalhe",
+            ],
+          );
+          continue;
+        }
         // Resultado externo e fila interna são persistidos juntos. Se o processo cair, outro ciclo retoma a fila.
         await emTransacao(this.pool, async (c) => {
           await c.query(
