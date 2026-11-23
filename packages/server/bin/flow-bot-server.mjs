@@ -32,6 +32,8 @@ const registro = (evento, dados = {}) =>
 
 async function principal() {
   if (comando === "ligar-webhook") {
+    if (process.env.EVOLUTION_PROVIDER === "alvo")
+      throw new Error("O gateway Evolution Alvo não expõe /webhook/set. Configure o evento de entrada na Evolution API da Oracle por procedimento administrativo seguro. Não reutilize EVOLUTION_URL do gateway.");
     const [instancia, base] = args;
     const { EVOLUTION_URL, EVOLUTION_API_KEY, EVOLUTION_WEBHOOK_SECRET } = process.env;
     if (!instancia || !base || !EVOLUTION_URL || !EVOLUTION_API_KEY || !EVOLUTION_WEBHOOK_SECRET)
