@@ -52,7 +52,7 @@ export type Acao =
     }
   /** Pedido para a camada de fora acordar a sessão em `at`. */
   | { type: "schedule"; nodeId: string; at: number; reason: "timeout" | "delay" }
-  | { type: "webhook"; nodeId: string; url: string; method: "POST" | "PUT"; timeoutMs: number }
+  | { type: "webhook"; nodeId: string; url: string; method: "POST" | "PUT"; timeoutMs: number; retries?: number }
   | { type: "handoff"; nodeId: string; note?: string };
 
 export type Passo = {
