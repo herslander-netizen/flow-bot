@@ -27,7 +27,10 @@ export const ConfigDoWorkspace = z
       .regex(/^[A-Z][A-Z0-9_]*$/)
       .optional(),
     /** Variável com token PRIVADO do projeto no gateway Evolution Alvo (um por workspace). */
-    evolutionTokenEnv: z.string().regex(/^[A-Z][A-Z0-9_]*$/).optional(),
+    evolutionTokenEnv: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]*$/)
+      .optional(),
   })
   .strict();
 
@@ -98,8 +101,7 @@ export function carregarConfig(
       if (!w.evolutionTokenEnv)
         throw new ConfigInvalida(`Workspace ${w.id} requer evolutionTokenEnv no gateway Alvo.`);
       const valor = env[w.evolutionTokenEnv];
-      if (!valor)
-        throw new ConfigInvalida(`Variável ${w.evolutionTokenEnv} não está definida.`);
+      if (!valor) throw new ConfigInvalida(`Variável ${w.evolutionTokenEnv} não está definida.`);
       if (vistosEvolution.has(valor))
         throw new ConfigInvalida("Cada workspace precisa de um token Evolution Alvo exclusivo.");
       vistosEvolution.add(valor);

@@ -39,7 +39,8 @@ export async function enviarTextoViaGatewayAlvo(
   idempotencyKey: string,
 ): Promise<ResultadoDoGatewayAlvo> {
   const url = endereco(cfg, "/v1/messages/text");
-  if (!url || !cfg.token || cfg.token.length > 128) return { ok: false, erro: "gateway_config_invalida" };
+  if (!url || !cfg.token || cfg.token.length > 128)
+    return { ok: false, erro: "gateway_config_invalida" };
   if (!CHAVE.test(idempotencyKey)) return { ok: false, erro: "gateway_chave_invalida" };
   const number = telefone.replace(/\D/g, "");
   if (!/^\d{10,15}$/.test(number)) return { ok: false, erro: "gateway_destinatario_invalido" };
@@ -57,15 +58,14 @@ export async function enviarTextoViaGatewayAlvo(
       redirect: "error",
       signal: AbortSignal.timeout(cfg.timeoutMs ?? 20_000),
     });
-    const resultado = (await response.json().catch(() => null)) as
-      | { status?: unknown; key?: { id?: unknown } }
-      | null;
+    const resultado = (await response.json().catch(() => null)) as {
+      status?: unknown;
+      key?: { id?: unknown };
+    } | null;
     const status = resultado?.status;
     if ((response.status === 202 || response.status === 200) && status === "accepted") {
       const id = resultado?.key?.id;
-      return typeof id === "string" && id.trim()
-        ? { ok: true, id }
-        : { ok: true };
+      return typeof id === "string" && id.trim() ? { ok: true, id } : { ok: true };
     }
     // O gateway armazena a situação 'unknown' vinculada à MESMA chave.
     // Nunca gerar nova chave para tentar resolver uma resposta inconclusiva.
@@ -82,9 +82,10 @@ export async function enviarTextoViaGatewayAlvo(
     return {
       ok: false,
       incerto: true,
-      erro: erro instanceof Error && erro.name === "TimeoutError"
-        ? "gateway_timeout_incerto"
-        : "gateway_rede_incerta",
+      erro:
+        erro instanceof Error && erro.name === "TimeoutError"
+          ? "gateway_timeout_incerto"
+          : "gateway_rede_incerta",
     };
   }
 }
@@ -92,9 +93,14 @@ export async function enviarTextoViaGatewayAlvo(
 /** Monitor de conexão por projeto: não expõe token ou número. */
 export async function consultarConexaoGatewayAlvo(
   cfg: ConfigDoGatewayAlvo,
-): Promise<{ ok: boolean; state?: "open" | "close" | "connecting" | "unconfigured"; erro?: string }> {
+): Promise<{
+  ok: boolean;
+  state?: "open" | "close" | "connecting" | "unconfigured";
+  erro?: string;
+}> {
   const url = endereco(cfg, "/v1/connection");
-  if (!url || !cfg.token || cfg.token.length > 128) return { ok: false, erro: "gateway_config_invalida" };
+  if (!url || !cfg.token || cfg.token.length > 128)
+    return { ok: false, erro: "gateway_config_invalida" };
   try {
     const response = await (cfg.fetch ?? fetch)(url, {
       method: "GET",

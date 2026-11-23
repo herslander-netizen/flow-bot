@@ -4,7 +4,11 @@
  * - encaminhamento: POST `handoffUrl` → `{ workspaceId, conversationKey, note }`;
  * - mensagens ao cliente: Evolution; webhooks de fluxo: só HTTPS público.
  */
-import { enviarTexto, enviarTextoViaGatewayAlvo, textoParaOCliente } from "@flow-bot/channel-evolution";
+import {
+  enviarTexto,
+  enviarTextoViaGatewayAlvo,
+  textoParaOCliente,
+} from "@flow-bot/channel-evolution";
 import { createHash } from "node:crypto";
 import type { Realidade } from "@flow-bot/contracts";
 import type { AdaptadorDeSaida } from "@flow-bot/store-postgres";
