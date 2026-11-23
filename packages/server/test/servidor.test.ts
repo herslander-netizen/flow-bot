@@ -259,7 +259,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
     const antes = (await bot.sessao(ws, numero))?.session.status;
     const eco = await avisar("eco do bot", {
       fromMe: true,
-      id: ids.rows[0]!.provider_message_id,
+      id: ids.rows[0]?.provider_message_id,
       telefone: numero,
     });
     expect(await eco.json()).toMatchObject({
