@@ -36,8 +36,6 @@ export const ConfigDoWorkspace = z
       .string()
       .regex(/^[A-Z][A-Z0-9_]*$/)
       .optional(),
-    /** Claude é opcional por tenant; nunca habilitado só porque há chave global. */
-    claudeEnabled: z.boolean().optional(),
     /** Segredo de entrada específico da instância, não compartilhado com outros negócios. */
     webhookSecretEnv: z
       .string()
@@ -76,13 +74,6 @@ export type ConfigDoServidor = {
   tokensOperadores: Map<string, string>;
   /** Segredos de entrada por workspace; nunca expostos ao cliente. */
   webhookSecrets: Map<string, string>;
-  claude: {
-    enabled: boolean;
-    apiKey: string;
-    model: string;
-    dailyLimit: number;
-    maxOutputTokens: number;
-  };
 };
 
 export class ConfigInvalida extends Error {}
@@ -110,26 +101,6 @@ export function carregarConfig(
     throw new ConfigInvalida(
       `Arquivo de workspaces inválido: ${lista.error.issues.map((i) => i.message).join("; ")}`,
     );
-  const claudeEnabled = env["FLOWBOT_CLAUDE_ENABLED"] === "1";
-  if (env["FLOWBOT_CLAUDE_ENABLED"] && !["0", "1"].includes(env["FLOWBOT_CLAUDE_ENABLED"]))
-    throw new ConfigInvalida("FLOWBOT_CLAUDE_ENABLED deve ser 0 ou 1.");
-  const claudeKey = env["ANTHROPIC_API_KEY"] ?? "";
-  const claudeModel = env["FLOWBOT_CLAUDE_MODEL"] ?? "";
-  const dailyLimit = Number(env["FLOWBOT_CLAUDE_DAILY_LIMIT"] ?? 5);
-  const maxOutputTokens = Number(env["FLOWBOT_CLAUDE_MAX_OUTPUT_TOKENS"] ?? 256);
-  if (
-    !Number.isInteger(dailyLimit) ||
-    dailyLimit < 1 ||
-    dailyLimit > 100 ||
-    !Number.isInteger(maxOutputTokens) ||
-    maxOutputTokens < 64 ||
-    maxOutputTokens > 1024
-  )
-    throw new ConfigInvalida("Limites Claude inválidos.");
-  if (claudeEnabled && (!claudeKey || !/^[a-z0-9-]{6,100}$/.test(claudeModel)))
-    throw new ConfigInvalida(
-      "Para habilitar Claude, defina ANTHROPIC_API_KEY e FLOWBOT_CLAUDE_MODEL.",
-    );
   const tokens = new Map<string, string>();
   const tokensEvolution = new Map<string, string>();
   const vistosEvolution = new Set<string>();
@@ -138,8 +109,6 @@ export function carregarConfig(
   const webhookSecrets = new Map<string, string>();
   const vistosWebhooks = new Set<string>();
   for (const w of lista.data.workspaces) {
-    if (claudeEnabled && w.claudeEnabled && !w.operatorTokenEnv)
-      throw new ConfigInvalida("Claude requer operatorTokenEnv exclusivo para " + w.id);
     if (w.tokenEnv) {
       const valor = env[w.tokenEnv];
       if (!valor)
@@ -187,8 +156,7 @@ export function carregarConfig(
     const externo = tokens.get(w.id);
     if (
       (operador && (operador === externo || operador === gateway || operador === webhook)) ||
-      (webhook && (webhook === externo || webhook === gateway)) ||
-      (claudeEnabled && [operador, webhook, gateway, externo, segredo].includes(claudeKey))
+      (webhook && (webhook === externo || webhook === gateway))
     )
       throw new ConfigInvalida(
         "Segredos de webhook, operador, gateway e sistema precisam ser distintos.",
@@ -211,12 +179,5 @@ export function carregarConfig(
     tokensEvolution,
     tokensOperadores,
     webhookSecrets,
-    claude: {
-      enabled: claudeEnabled,
-      apiKey: claudeKey,
-      model: claudeModel,
-      dailyLimit,
-      maxOutputTokens,
-    },
   };
 }
