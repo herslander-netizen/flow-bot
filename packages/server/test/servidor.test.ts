@@ -27,6 +27,7 @@ const URL_DO_BANCO = process.env["DATABASE_URL"];
 const ler = (c: string) =>
   JSON.parse(readFileSync(new URL(`../../../${c}`, import.meta.url), "utf8"));
 const SEGREDO = "s".repeat(40);
+const SEGREDO_OPERADOR = "o".repeat(40);
 
 function subir(handler: Parameters<typeof createServer>[1]): Promise<{ s: Server; url: string }> {
   return new Promise((ok) => {
@@ -139,6 +140,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
         EVOLUTION_API_KEY: "chave-evolution",
         EVOLUTION_WEBHOOK_SECRET: SEGREDO,
         TOKEN_SISTEMA: "token-do-sistema",
+        TOKEN_OPERADOR: SEGREDO_OPERADOR,
       },
       {
         workspaces: [
@@ -149,6 +151,7 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
             realityUrl: `${sistema.url}/flow-bot/realidade`,
             handoffUrl: `${sistema.url}/flow-bot/equipe`,
             tokenEnv: "TOKEN_SISTEMA",
+            operatorTokenEnv: "TOKEN_OPERADOR",
           },
         ],
       },
@@ -264,6 +267,87 @@ describe.skipIf(!URL_DO_BANCO)("serviço de ponta a ponta", () => {
     expect(enviados.at(-1)?.texto).toBe(
       "Como posso ajudar?\n1. Agendar\n2. Serviços e preços\n3. Horário e endereço\n4. Falar com a equipe",
     );
+  });
+
+  it("opera o handoff por token do workspace sem misturar contatos", async () => {
+    const numero = "5582777770000";
+    await bot.receberMensagem({
+      workspaceId: ws,
+      conversationKey: numero,
+      flowId: "flow-atendimento",
+      eventKey: "teste-operador-inicial",
+      text: "bom dia",
+    });
+
+    const endpoint = `${servico.url}/ops/conversations/handoff`;
+    const body = JSON.stringify({ workspaceId: ws, conversationKey: numero });
+    const recusar = async (token: string, id = ws) =>
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ workspaceId: id, conversationKey: numero }),
+      });
+    expect((await recusar("incorreto")).status).toBe(401);
+    expect((await recusar(SEGREDO_OPERADOR, "outro-workspace")).status).toBe(401);
+    expect((await recusar(SEGREDO)).status).toBe(401); // webhook não autoriza operador
+
+    const antes = enviados.length;
+    const sucesso = await recusar(SEGREDO_OPERADOR);
+    expect(sucesso.status).toBe(200);
+    expect(await sucesso.json()).toEqual({ ok: true, changed: true });
+    expect((await bot.sessao(ws, numero))?.session.status).toBe("handed_off");
+    expect(await (await recusar(SEGREDO_OPERADOR)).json()).toEqual({
+      ok: true,
+      changed: false,
+    });
+    const fila = await pool.query(
+      "SELECT status FROM flow_bot.outbound WHERE workspace_id = $1 AND conversation_key = $2",
+      [ws, numero],
+    );
+    expect(fila.rows.length).toBeGreaterThan(0);
+    expect(fila.rows.every((item: { status: string }) => item.status === "cancelled")).toBe(true);
+    await entregar();
+    expect(enviados.length).toBe(antes);
+
+    const ignorada = await bot.receberMensagem({
+      workspaceId: ws,
+      conversationKey: numero,
+      flowId: "flow-atendimento",
+      eventKey: "teste-operador-recebido",
+      text: "preciso de ajuda",
+    });
+    expect(ignorada).toMatchObject({
+      status: "handed_off",
+      motivo: "atendimento_humano",
+      acoes: [],
+    });
+
+    const retomada = await fetch(`${servico.url}/ops/conversations/resume`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${SEGREDO_OPERADOR}`,
+      },
+      body,
+    });
+    expect(retomada.status).toBe(200);
+    expect(await retomada.json()).toEqual({ ok: true, changed: true });
+    expect((await bot.sessao(ws, numero))?.session.status).toBe("new");
+  });
+
+  it("não habilita operador se token não estiver configurado nem aceita token curto", () => {
+    const config = {
+      DATABASE_URL: "postgres://exemplo",
+      EVOLUTION_URL: "https://evo.exemplo",
+      EVOLUTION_API_KEY: "teste",
+      EVOLUTION_WEBHOOK_SECRET: SEGREDO,
+      OPERADOR: "curto",
+    };
+    expect(() =>
+      carregarConfig(config, {
+        workspaces: [{ id: "x", instance: "i", flowId: "f", operatorTokenEnv: "OPERADOR" }],
+      }),
+    ).toThrow(ConfigInvalida);
   });
 
   it("health", async () => {
