@@ -60,7 +60,7 @@ export function realidadeDoSistema(cfg: ConfigDoServidor, deps: Dependencias = {
 
 export function adaptadorDeSaida(cfg: ConfigDoServidor, deps: Dependencias = {}): AdaptadorDeSaida {
   const porId = new Map<string, ConfigDoWorkspace>(cfg.workspaces.map((w) => [w.id, w]));
-  return async ({ workspaceId, conversationKey, acao }) => {
+  return async ({ workspaceId, conversationKey, chave, acao }) => {
     const w = porId.get(workspaceId);
     if (!w) return { ok: false, erro: "workspace_sem_configuracao" };
     const token = cfg.tokens.get(workspaceId);
@@ -98,6 +98,7 @@ export function adaptadorDeSaida(cfg: ConfigDoServidor, deps: Dependencias = {})
         const r = await chamarJson(acao.url, {
           metodo: acao.method,
           timeoutMs: acao.timeoutMs,
+          idempotencyKey: chave,
           corpo: { workspaceId, conversationKey, nodeId: acao.nodeId },
           ...(deps.fetch ? { fetch: deps.fetch } : {}),
         });
