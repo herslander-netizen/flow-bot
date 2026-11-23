@@ -111,8 +111,10 @@ export async function consultarConexaoGatewayAlvo(
     if (!response.ok) return { ok: false, erro: `gateway_http_${response.status}` };
     const data = (await response.json().catch(() => null)) as { state?: unknown } | null;
     const state = data?.state;
-    if (state === "open" || state === "close" || state === "connecting" || state === "unconfigured")
+    if (state === "open" || state === "close" || state === "connecting") {
       return { ok: true, state };
+    }
+    if (state === "unconfigured") return { ok: true, state };
     return { ok: false, erro: "gateway_estado_invalido" };
   } catch {
     return { ok: false, erro: "gateway_indisponivel" };
