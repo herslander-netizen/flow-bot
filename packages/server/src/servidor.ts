@@ -8,7 +8,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
-import { lerAvisoDaEvolution } from "@flow-bot/channel-evolution";
+import { lerAvisoDaEvolution, lerSaidaPropriaDaEvolution } from "@flow-bot/channel-evolution";
 import type { AdaptadorDeSaida, FlowBot } from "@flow-bot/store-postgres";
 import type pg from "pg";
 
@@ -118,6 +118,27 @@ export function criarServidor(p: {
         return responder(res, 400, { erro: "json_invalido" });
       }
 
+      // 'fromMe' não comprova atendimento humano: pode ser eco do próprio bot.
+      // Só um ID de saída previamente aceito permite confirmação de eco.
+      const propria = lerSaidaPropriaDaEvolution(corpo);
+      if (propria) {
+        const origem = porInstancia.get(propria.instancia);
+        if (!origem) {
+          log("instancia_desconhecida", { instancia: propria.instancia });
+          return responder(res, 200, { ok: true, ignorado: "instancia_desconhecida" });
+        }
+        const ecoConfirmado = propria.telefone
+          ? await p.bot.ecoBotConfirmado(origem.id, propria.telefone, propria.id)
+          : false;
+        log(ecoConfirmado ? "eco_bot_confirmado" : "saida_propria_indeterminada", {
+          workspace: origem.id,
+        });
+        return responder(res, 200, {
+          ok: true,
+          ignorado: "enviada_pelo_proprio_numero",
+          proveniencia: ecoConfirmado ? "bot_confirmado" : "indeterminada",
+        });
+      }
       const aviso = lerAvisoDaEvolution(corpo);
       if (aviso.tipo === "ignorado")
         return responder(res, 200, { ok: true, ignorado: aviso.motivo });
