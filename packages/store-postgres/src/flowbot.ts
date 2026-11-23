@@ -72,7 +72,7 @@ export type AdaptadorDeSaida = (entrega: {
   conversationKey: string;
   chave: string;
   acao: Acao;
-}) => Promise<{ ok: boolean; erro?: string }>;
+}) => Promise<{ ok: boolean; erro?: string; incerto?: true }>;
 
 /** Filtros das filas: um processo pode atender todos os workspaces ou só um. */
 export type OpcoesDaFila = { limite?: number; workspaceId?: string };
@@ -330,13 +330,14 @@ export class FlowBot {
             SELECT o.id FROM flow_bot.outbound o
              WHERE o.next_attempt_at <= $1
                AND (o.status = 'pending' OR (o.status = 'sending' AND o.locked_until < $1))
+               AND NOT o.delivery_uncertain
                AND ($4::text IS NULL OR o.workspace_id = $4)
                AND NOT EXISTS (
                  SELECT 1 FROM flow_bot.outbound anterior
                   WHERE anterior.workspace_id = o.workspace_id
                     AND anterior.conversation_key = o.conversation_key
                     AND anterior.id < o.id
-                    AND anterior.status IN ('pending', 'sending'))
+                    AND (anterior.status IN ('pending', 'sending') OR anterior.delivery_uncertain))
              ORDER BY o.next_attempt_at, o.id
              LIMIT $3
              FOR UPDATE SKIP LOCKED)
@@ -354,7 +355,7 @@ export class FlowBot {
     reservados: Awaited<ReturnType<FlowBot["reservarSaidas"]>>,
   ) {
     for (const item of reservados) {
-      let resultado: { ok: boolean; erro?: string };
+      let resultado: { ok: boolean; erro?: string; incerto?: true };
       // Uma operação de takeover espera a transmissão já em andamento terminar.
       // Ao retornar sucesso, nenhuma saída nova pode partir para o canal.
       // O lock é por conversa, não por workspace: outros clientes continuam atendidos.
@@ -406,6 +407,21 @@ export class FlowBot {
         } catch (erro) {
           resultado = { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
         }
+      }
+      // Evitar duplicidade: 'unknown' nunca vira falha comum nem libera a próxima
+      // saída. A mesma chave só pode ser reconciliada mediante evidência externa.
+      if (
+        !resultado.ok &&
+        resultado.incerto === true &&
+        (item.action.type === "send_text" || item.action.type === "send_quick_replies")
+      ) {
+        await this.pool.query(
+          `UPDATE flow_bot.outbound
+              SET delivery_uncertain = true, locked_until = NULL, last_error = $2
+            WHERE id = $1 AND status = 'sending'`,
+          [item.id, resultado.erro?.slice(0, 500) ?? "resultado_incerto"],
+        );
+        continue;
       }
       if (item.action.type === "webhook") {
         // "retries" conta tentativas adicionais. maxTentativas é o teto operacional global.
@@ -467,6 +483,27 @@ export class FlowBot {
         ],
       );
     }
+  }
+
+  /** Pendências de envio incerto, apenas para console administrativo autenticado. */
+  async enviosIncertos(
+    workspaceId: string,
+  ): Promise<
+    { id: string; conversation_key: string; idempotency_key: string; last_error: string | null }[]
+  > {
+    const r = await this.pool.query<{
+      id: string;
+      conversation_key: string;
+      idempotency_key: string;
+      last_error: string | null;
+    }>(
+      `SELECT id, conversation_key, idempotency_key, last_error
+         FROM flow_bot.outbound
+        WHERE workspace_id = $1 AND delivery_uncertain = true
+        ORDER BY id LIMIT 100`,
+      [workspaceId],
+    );
+    return r.rows;
   }
 
   /**

@@ -208,6 +208,62 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     expect(instavel.enviados.map((e) => e.chave).sort()).toEqual(["whatsapp:1#0", "whatsapp:1#1"]);
   });
 
+  it("envio unknown bloqueia fila e não é repetido após timeout ou restart", async () => {
+    const c = cenario();
+    await c.bot.publicar(c.ws, menu());
+    await c.dizer("oi");
+    const chaves: string[] = [];
+    const incerto: AdaptadorDeSaida = async ({ chave }) => {
+      chaves.push(chave);
+      return { ok: false, erro: "gateway_envio_incerto", incerto: true };
+    };
+    expect(await c.bot.entregarPendentes(incerto, { workspaceId: c.ws })).toBe(1);
+    expect(await c.bot.entregarPendentes(incerto, { workspaceId: c.ws })).toBe(0);
+    c.avancar(3600);
+    const reiniciado = new FlowBot({ pool, agora: () => new Date("2026-11-02T13:00:00Z") });
+    expect(await reiniciado.entregarPendentes(incerto, { workspaceId: c.ws })).toBe(0);
+    expect(chaves).toHaveLength(1);
+    expect(chaves).toEqual(["whatsapp:1#0"]);
+    const saidas = await pool.query(
+      "SELECT status, attempts, delivery_uncertain FROM flow_bot.outbound WHERE workspace_id = $1 ORDER BY id",
+      [c.ws],
+    );
+    expect(saidas.rows).toEqual([
+      { status: "sending", attempts: 1, delivery_uncertain: true },
+      { status: "pending", attempts: 0, delivery_uncertain: false },
+    ]);
+    expect(await reiniciado.enviosIncertos(c.ws)).toEqual([
+      expect.objectContaining({
+        idempotency_key: "whatsapp:1#0",
+        conversation_key: "c1",
+        last_error: "gateway_envio_incerto",
+      }),
+    ]);
+  });
+
+  it("unknown de uma empresa não interrompe a fila de outra", async () => {
+    const a = cenario();
+    const b = cenario();
+    await a.bot.publicar(a.ws, menu());
+    await b.bot.publicar(b.ws, menu());
+    await a.dizer("oi");
+    await b.dizer("oi");
+    const incerto: AdaptadorDeSaida = async () => ({
+      ok: false,
+      incerto: true,
+      erro: "gateway_timeout_incerto",
+    });
+    const enviados: string[] = [];
+    const normal: AdaptadorDeSaida = async ({ chave }) => {
+      enviados.push(chave);
+      return { ok: true };
+    };
+    expect(await a.bot.entregarPendentes(incerto, { workspaceId: a.ws })).toBe(1);
+    expect(await b.bot.entregarPendentes(normal, { workspaceId: b.ws })).toBe(2);
+    expect(enviados).toEqual(["whatsapp:1#0", "whatsapp:1#1"]);
+    expect(await a.bot.enviosIncertos(b.ws)).toEqual([]);
+  });
+
   it("cancela respostas e prazos pendentes da conversa", async () => {
     const c = cenario();
     await c.bot.publicar(c.ws, menu());
