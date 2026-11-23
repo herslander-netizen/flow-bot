@@ -6,3 +6,5 @@ export {
   type ConfigDaEvolution,
   type ResultadoDoEnvio,
 } from "./saida.js";
+
+export { enviarTextoViaGatewayAlvo, consultarConexaoGatewayAlvo, type ConfigDoGatewayAlvo, type ResultadoDoGatewayAlvo } from "./gateway-alvo.js";
