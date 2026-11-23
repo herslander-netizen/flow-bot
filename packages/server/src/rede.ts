@@ -51,6 +51,7 @@ export async function chamarJson(
   opcoes: {
     metodo: "GET" | "POST" | "PUT";
     token?: string;
+    idempotencyKey?: string;
     corpo?: unknown;
     timeoutMs: number;
     fetch?: typeof fetch;
@@ -63,6 +64,7 @@ export async function chamarJson(
       accept: "application/json",
       ...(opcoes.corpo !== undefined ? { "content-type": "application/json" } : {}),
       ...(opcoes.token ? { authorization: `Bearer ${opcoes.token}` } : {}),
+      ...(opcoes.idempotencyKey ? { "idempotency-key": opcoes.idempotencyKey } : {}),
     },
     ...(opcoes.corpo !== undefined ? { body: JSON.stringify(opcoes.corpo) } : {}),
     signal: AbortSignal.timeout(opcoes.timeoutMs),
