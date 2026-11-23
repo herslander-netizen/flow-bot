@@ -105,7 +105,9 @@ function chamada(
       instance,
       data: {
         key: { id, fromMe, remoteJid: contato + "@s.whatsapp.net" },
-        message: buttonId ? { buttonsResponseMessage: { selectedButtonId: buttonId } } : { conversation: text },
+        message: buttonId
+          ? { buttonsResponseMessage: { selectedButtonId: buttonId } }
+          : { conversation: text },
       },
     }),
   });
@@ -235,8 +237,8 @@ describe("piloto Cloudflare FlowBot", () => {
 
   it("botões aceitos não disparam um segundo menu por precaução", async () => {
     const db = dbFake();
-    const f = vi.fn(async () =>
-      new Response(JSON.stringify({ status: "accepted" }), { status: 202 }),
+    const f = vi.fn(
+      async () => new Response(JSON.stringify({ status: "accepted" }), { status: 202 }),
     );
     vi.stubGlobal("fetch", f);
     const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));

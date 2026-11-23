@@ -265,9 +265,19 @@ export default {
     const usarBotoes = GATILHOS.has(event.input) && env.PILOT_INTERACTIVE_BUTTONS !== "0";
     let result = usarBotoes
       ? await enviarGateway(env, event.contact, { type: "buttons" }, idem + ":buttons")
-      : await enviarGateway(env, event.contact, { type: "text", text: responseText }, idem + ":text");
+      : await enviarGateway(
+          env,
+          event.contact,
+          { type: "text", text: responseText },
+          idem + ":text",
+        );
     if (result.outcome === "unsupported") {
-      result = await enviarGateway(env, event.contact, { type: "text", text: responseText }, idem + ":text");
+      result = await enviarGateway(
+        env,
+        event.contact,
+        { type: "text", text: responseText },
+        idem + ":text",
+      );
     }
     await env.DB.prepare(
       "UPDATE pilot_events SET outcome = ?, provider_message_id = ? WHERE instance = ? AND event_id = ?",
