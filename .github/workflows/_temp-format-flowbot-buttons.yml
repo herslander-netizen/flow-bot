@@ -1,0 +1,29 @@
+name: Format experimental FlowBot buttons (temporary)
+on:
+  push:
+    branches:
+      - feat/flowbot-experimental-buttons-20261123
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Format pilot buttons files
+        run: |
+          npx prettier --write apps/whatsapp-pilot/worker.mjs apps/whatsapp-pilot/worker.test.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/whatsapp-pilot/worker.mjs apps/whatsapp-pilot/worker.test.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "style: formatar botões experimentais FlowBot"
+            git push origin HEAD:refs/heads/feat/flowbot-experimental-buttons-20261123
+          fi
