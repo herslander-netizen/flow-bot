@@ -66,10 +66,7 @@ describe("saída por projeto na Evolution Alvo", () => {
       }),
     ).toThrow("requer webhookSecretEnv");
     expect(() =>
-      carregarConfig(
-        { ...ambiente, WEBHOOK_A: "curto" },
-        { workspaces: [workspaceA] },
-      ),
+      carregarConfig({ ...ambiente, WEBHOOK_A: "curto" }, { workspaces: [workspaceA] }),
     ).toThrow("exige 32 caracteres");
     expect(() =>
       carregarConfig(

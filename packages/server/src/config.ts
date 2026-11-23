@@ -158,7 +158,9 @@ export function carregarConfig(
       (operador && (operador === externo || operador === gateway || operador === webhook)) ||
       (webhook && (webhook === externo || webhook === gateway))
     )
-      throw new ConfigInvalida("Segredos de webhook, operador, gateway e sistema precisam ser distintos.");
+      throw new ConfigInvalida(
+        "Segredos de webhook, operador, gateway e sistema precisam ser distintos.",
+      );
   }
   return {
     porta: Number(env["PORT"] ?? 8080),

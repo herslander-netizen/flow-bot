@@ -69,11 +69,7 @@ describe("webhook Evolution — autenticação por instância", () => {
     });
   });
 
-  async function enviar(
-    instancia: string,
-    segredo: string,
-    tipo = "x-webhook-secret",
-  ) {
+  async function enviar(instancia: string, segredo: string, tipo = "x-webhook-secret") {
     return fetch(endereco + "/webhooks/evolution", {
       method: "POST",
       headers: { "content-type": "application/json", [tipo]: segredo },
