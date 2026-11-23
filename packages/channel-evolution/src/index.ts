@@ -1,4 +1,9 @@
-export { lerAvisoDaEvolution, lerSaidaPropriaDaEvolution, textoDaMensagem, type EntradaDaEvolution } from "./entrada.js";
+export {
+  lerAvisoDaEvolution,
+  lerSaidaPropriaDaEvolution,
+  textoDaMensagem,
+  type EntradaDaEvolution,
+} from "./entrada.js";
 export {
   configurarWebhook,
   enviarTexto,

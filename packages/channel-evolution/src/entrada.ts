@@ -82,7 +82,9 @@ export function lerSaidaPropriaDaEvolution(
   corpo: unknown,
 ): { instancia: string; id: string; telefone: string | null } | null {
   const c = objeto(corpo);
-  const evento = String(c["event"] ?? "").toLowerCase().replace(/_/g, ".");
+  const evento = String(c["event"] ?? "")
+    .toLowerCase()
+    .replace(/_/g, ".");
   if (evento !== "messages.upsert") return null;
   const instancia = typeof c["instance"] === "string" ? c["instance"] : "";
   if (!instancia) return null;

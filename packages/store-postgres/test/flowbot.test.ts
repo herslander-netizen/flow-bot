@@ -273,15 +273,13 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
       id: "EVOLUTION_MSG_CONFIRMED_001",
     });
     expect(await c.bot.entregarPendentes(enviouComId, { workspaceId: c.ws, limite: 1 })).toBe(1);
-    expect(await c.bot.ecoBotConfirmado(c.ws, "c1", "EVOLUTION_MSG_CONFIRMED_001")).toBe(
-      true,
-    );
+    expect(await c.bot.ecoBotConfirmado(c.ws, "c1", "EVOLUTION_MSG_CONFIRMED_001")).toBe(true);
     expect(
       await c.bot.ecoBotConfirmado("outro-workspace", "c1", "EVOLUTION_MSG_CONFIRMED_001"),
     ).toBe(false);
-    expect(
-      await c.bot.ecoBotConfirmado(c.ws, "outro-contato", "EVOLUTION_MSG_CONFIRMED_001"),
-    ).toBe(false);
+    expect(await c.bot.ecoBotConfirmado(c.ws, "outro-contato", "EVOLUTION_MSG_CONFIRMED_001")).toBe(
+      false,
+    );
     expect(await c.bot.ecoBotConfirmado(c.ws, "c1", "msg_desconhecida")).toBe(false);
     expect(await c.bot.ecoBotConfirmado(c.ws, "c1", "")).toBe(false);
   });

@@ -472,7 +472,9 @@ export class FlowBot {
           [
             item.id,
             this.agora(),
-            typeof resultado.id === "string" && resultado.id.length > 0 && resultado.id.length <= 200
+            typeof resultado.id === "string" &&
+            resultado.id.length > 0 &&
+            resultado.id.length <= 200
               ? resultado.id
               : null,
           ],

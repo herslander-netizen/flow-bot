@@ -84,9 +84,7 @@ describe("classificação conservadora de fromMe", () => {
   it("ID ausente não permite correlação; JID LID permanece indeterminado", () => {
     expect(lerSaidaPropriaDaEvolution(mensagem({}, { fromMe: true, id: undefined }))).toBeNull();
     expect(
-      lerSaidaPropriaDaEvolution(
-        mensagem({}, { fromMe: true, remoteJid: "123456@lid" }),
-      ),
+      lerSaidaPropriaDaEvolution(mensagem({}, { fromMe: true, remoteJid: "123456@lid" })),
     ).toMatchObject({ telefone: null, id: "ABC123" });
   });
 });
