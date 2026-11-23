@@ -72,3 +72,28 @@ export function lerAvisoDaEvolution(corpo: unknown): EntradaDaEvolution {
       : null;
   return { tipo: "mensagem", instancia, id, telefone, nome, texto: texto.slice(0, 4000) };
 }
+
+/**
+ * Extrai o ID de uma mensagem "fromMe" sem declarar que foi escrita por humano.
+ * O ID só deve ser classificado como eco do bot após consulta ao registro
+ * persistente de saídas aceitas. Mensagens sem correspondência são indeterminadas.
+ */
+export function lerSaidaPropriaDaEvolution(
+  corpo: unknown,
+): { instancia: string; id: string; telefone: string | null } | null {
+  const c = objeto(corpo);
+  const evento = String(c["event"] ?? "").toLowerCase().replace(/_/g, ".");
+  if (evento !== "messages.upsert") return null;
+  const instancia = typeof c["instance"] === "string" ? c["instance"] : "";
+  if (!instancia) return null;
+  const dados = objeto(c["data"]);
+  const key = objeto(dados["key"]);
+  if (key["fromMe"] !== true) return null;
+  const id = typeof key["id"] === "string" ? key["id"] : "";
+  if (!id || id.length > 200) return null;
+  const jid = String(key["remoteJid"] ?? "");
+  const telefone = jid.endsWith("@s.whatsapp.net")
+    ? (jid.split("@")[0]?.replace(/\D/g, "") ?? "")
+    : null;
+  return { instancia, id, telefone: telefone || null };
+}
