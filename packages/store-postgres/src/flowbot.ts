@@ -72,7 +72,7 @@ export type AdaptadorDeSaida = (entrega: {
   conversationKey: string;
   chave: string;
   acao: Acao;
-}) => Promise<{ ok: boolean; erro?: string; incerto?: true }>;
+}) => Promise<{ ok: boolean; erro?: string; incerto?: true; id?: string }>;
 
 /** Filtros das filas: um processo pode atender todos os workspaces ou só um. */
 export type OpcoesDaFila = { limite?: number; workspaceId?: string };
@@ -355,7 +355,7 @@ export class FlowBot {
     reservados: Awaited<ReturnType<FlowBot["reservarSaidas"]>>,
   ) {
     for (const item of reservados) {
-      let resultado: { ok: boolean; erro?: string; incerto?: true };
+      let resultado: { ok: boolean; erro?: string; incerto?: true; id?: string };
       // Uma operação de takeover espera a transmissão já em andamento terminar.
       // Ao retornar sucesso, nenhuma saída nova pode partir para o canal.
       // O lock é por conversa, não por workspace: outros clientes continuam atendidos.
@@ -465,8 +465,17 @@ export class FlowBot {
       }
       if (resultado.ok) {
         await this.pool.query(
-          `UPDATE flow_bot.outbound SET status = 'sent', sent_at = $2, locked_until = NULL, last_error = NULL WHERE id = $1`,
-          [item.id, this.agora()],
+          `UPDATE flow_bot.outbound
+              SET status = 'sent', sent_at = $2, locked_until = NULL,
+                  last_error = NULL, provider_message_id = $3
+            WHERE id = $1`,
+          [
+            item.id,
+            this.agora(),
+            typeof resultado.id === "string" && resultado.id.length > 0 && resultado.id.length <= 200
+              ? resultado.id
+              : null,
+          ],
         );
         continue;
       }
@@ -483,6 +492,22 @@ export class FlowBot {
         ],
       );
     }
+  }
+
+  /** Um ID só confirma eco do bot quando foi devolvido por saída aceita neste workspace e contato. */
+  async ecoBotConfirmado(
+    workspaceId: string,
+    conversationKey: string,
+    providerMessageId: string,
+  ): Promise<boolean> {
+    if (!providerMessageId || providerMessageId.length > 200) return false;
+    const r = await this.pool.query(
+      `SELECT 1 FROM flow_bot.outbound
+        WHERE workspace_id = $1 AND conversation_key = $2
+          AND provider_message_id = $3 AND status = 'sent' LIMIT 1`,
+      [workspaceId, conversationKey, providerMessageId],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   /** Pendências de envio incerto, apenas para console administrativo autenticado. */
