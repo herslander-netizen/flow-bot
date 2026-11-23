@@ -26,6 +26,11 @@ export const ConfigDoWorkspace = z
       .string()
       .regex(/^[A-Z][A-Z0-9_]*$/)
       .optional(),
+    /** Variável com token PRIVADO do projeto no gateway Evolution Alvo (um por workspace). */
+    evolutionTokenEnv: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]*$/)
+      .optional(),
   })
   .strict();
 
@@ -46,13 +51,15 @@ export type ConfigDoWorkspace = z.infer<typeof ConfigDoWorkspace>;
 export type ConfigDoServidor = {
   porta: number;
   databaseUrl: string;
-  evolution: { url: string; apiKey: string; webhookSecret: string };
+  evolution: { url: string; apiKey: string; webhookSecret: string; provider: "direct" | "alvo" };
   segredoDoAprendizado: string | null;
   diasDeRetencao: number;
   intervaloMs: number;
   workspaces: ConfigDoWorkspace[];
   /** Tokens já lidos do ambiente, por workspace. */
   tokens: Map<string, string>;
+  /** Tokens do gateway, carregados apenas no servidor e nunca no JSON de workspaces. */
+  tokensEvolution: Map<string, string>;
 };
 
 export class ConfigInvalida extends Error {}
@@ -61,10 +68,13 @@ export function carregarConfig(
   env: NodeJS.ProcessEnv,
   arquivoDeWorkspaces: unknown,
 ): ConfigDoServidor {
+  const provider = env["EVOLUTION_PROVIDER"] ?? "direct";
+  if (provider !== "direct" && provider !== "alvo")
+    throw new ConfigInvalida("EVOLUTION_PROVIDER deve ser direct ou alvo.");
   const faltando = [
     "DATABASE_URL",
     "EVOLUTION_URL",
-    "EVOLUTION_API_KEY",
+    ...(provider === "direct" ? ["EVOLUTION_API_KEY"] : []),
     "EVOLUTION_WEBHOOK_SECRET",
   ].filter((k) => !env[k]);
   if (faltando.length)
@@ -78,12 +88,25 @@ export function carregarConfig(
       `Arquivo de workspaces inválido: ${lista.error.issues.map((i) => i.message).join("; ")}`,
     );
   const tokens = new Map<string, string>();
+  const tokensEvolution = new Map<string, string>();
+  const vistosEvolution = new Set<string>();
   for (const w of lista.data.workspaces) {
-    if (!w.tokenEnv) continue;
-    const valor = env[w.tokenEnv];
-    if (!valor)
-      throw new ConfigInvalida(`Variável ${w.tokenEnv} (token de ${w.id}) não está definida.`);
-    tokens.set(w.id, valor);
+    if (w.tokenEnv) {
+      const valor = env[w.tokenEnv];
+      if (!valor)
+        throw new ConfigInvalida(`Variável ${w.tokenEnv} (token de ${w.id}) não está definida.`);
+      tokens.set(w.id, valor);
+    }
+    if (provider === "alvo") {
+      if (!w.evolutionTokenEnv)
+        throw new ConfigInvalida(`Workspace ${w.id} requer evolutionTokenEnv no gateway Alvo.`);
+      const valor = env[w.evolutionTokenEnv];
+      if (!valor) throw new ConfigInvalida(`Variável ${w.evolutionTokenEnv} não está definida.`);
+      if (vistosEvolution.has(valor))
+        throw new ConfigInvalida("Cada workspace precisa de um token Evolution Alvo exclusivo.");
+      vistosEvolution.add(valor);
+      tokensEvolution.set(w.id, valor);
+    }
   }
   return {
     porta: Number(env["PORT"] ?? 8080),
@@ -92,11 +115,13 @@ export function carregarConfig(
       url: env["EVOLUTION_URL"] ?? "",
       apiKey: env["EVOLUTION_API_KEY"] ?? "",
       webhookSecret: segredo,
+      provider,
     },
     segredoDoAprendizado: env["FLOW_BOT_SEGREDO"] || null,
     diasDeRetencao: Number(env["FLOW_BOT_RETENCAO_DIAS"] ?? 90),
     intervaloMs: Number(env["FLOW_BOT_INTERVALO_MS"] ?? 2000),
     workspaces: lista.data.workspaces,
     tokens,
+    tokensEvolution,
   };
 }
