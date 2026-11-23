@@ -27,8 +27,7 @@ async function hash(value) {
   return Array.from(new Uint8Array(bytes), (x) => x.toString(16).padStart(2, "0")).join("");
 }
 async function credencialValida(recebido, esperado) {
-  if (!recebido || !esperado || recebido.length > 256 || esperado.length < 32)
-    return false;
+  if (!recebido || !esperado || recebido.length > 256 || esperado.length < 32) return false;
   const [a, b] = await Promise.all([hash(recebido), hash(esperado)]);
   // Strings da mesma largura após o hash; nenhuma comparação por prefixo.
   let diff = 0;
@@ -56,19 +55,29 @@ async function corpoLimitado(request) {
   }
   const buffer = new Uint8Array(bytes);
   let offset = 0;
-  for (const c of chunks) { buffer.set(c, offset); offset += c.length; }
+  for (const c of chunks) {
+    buffer.set(c, offset);
+    offset += c.length;
+  }
   return JSON.parse(new TextDecoder().decode(buffer));
 }
 
 function textoNormalizado(value) {
   return String(value ?? "")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().replace(/\s+/g, " ").trim();
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 function lerEvento(corpo, instance) {
   if (!corpo || typeof corpo !== "object" || Array.isArray(corpo)) return null;
   if (String(corpo.instance ?? "") !== instance) return null;
-  if (String(corpo.event ?? "").toLowerCase().replace(/_/g, ".") !== "messages.upsert")
+  if (
+    String(corpo.event ?? "")
+      .toLowerCase()
+      .replace(/_/g, ".") !== "messages.upsert"
+  )
     return null;
   const data = corpo.data;
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
@@ -92,8 +101,10 @@ function respostaDoPiloto(input, sessionActive) {
     return "👋 *FlowBot — teste de atendimento*\n\nConexão WhatsApp funcionando! ✅\n\nDigite:\n*1* — Conhecer o FlowBot\n*2* — Atendimento humano (simulação)\n\n_Este é um ambiente de homologação._";
   }
   if (!sessionActive) return null;
-  if (input === "1") return "O FlowBot está sendo preparado para automatizar conversas e organizar atendimentos. Este número está em modo de teste, sem agendamento real.";
-  if (input === "2") return "Solicitação de atendimento humano recebida *apenas neste teste*. A transferência automática ainda não está ativada.";
+  if (input === "1")
+    return "O FlowBot está sendo preparado para automatizar conversas e organizar atendimentos. Este número está em modo de teste, sem agendamento real.";
+  if (input === "2")
+    return "Solicitação de atendimento humano recebida *apenas neste teste*. A transferência automática ainda não está ativada.";
   return null;
 }
 
@@ -117,8 +128,7 @@ async function enviarGateway(env, numero, text, key) {
       return { outcome: "sent", id: typeof obj.key?.id === "string" ? obj.key.id : null };
     if (obj?.status === "unknown" || obj?.status === "pending")
       return { outcome: "unknown", id: null };
-    if ([400,401,403,404,422].includes(r.status))
-      return { outcome: "failed", id: null };
+    if ([400, 401, 403, 404, 422].includes(r.status)) return { outcome: "failed", id: null };
     return { outcome: "unknown", id: null };
   } catch {
     return { outcome: "unknown", id: null };
@@ -134,7 +144,9 @@ export default {
       return responder(200, {
         ok: true,
         component: "flowbot-whatsapp-pilot",
-        configured: Boolean(env.DB && env.WEBHOOK_SECRET && env.EVOLUTION_ALVO_TOKEN && env.INSTANCE_NAME),
+        configured: Boolean(
+          env.DB && env.WEBHOOK_SECRET && env.EVOLUTION_ALVO_TOKEN && env.INSTANCE_NAME,
+        ),
         enabled: env.PILOT_ENABLED === "1",
       });
     }
@@ -142,7 +154,10 @@ export default {
       if (!env.EVOLUTION_ALVO_TOKEN) return responder(503, { ok: false, reason: "no_token" });
       try {
         const upstream = await fetch(URL_GATEWAY + "/v1/connection", {
-          headers: { authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN, accept: "application/json" },
+          headers: {
+            authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN,
+            accept: "application/json",
+          },
           redirect: "error",
           signal: AbortSignal.timeout(6000),
         });
@@ -161,27 +176,39 @@ export default {
     }
     if (path !== "/webhooks/evolution") return responder(404, { error: "not_found" });
     if (request.method !== "POST") return responder(405, { error: "method_not_allowed" });
-    if (!env.DB || !env.INSTANCE_NAME || !env.WEBHOOK_SECRET ||
-        !env.EVOLUTION_ALVO_TOKEN || env.PILOT_ENABLED !== "1")
+    if (
+      !env.DB ||
+      !env.INSTANCE_NAME ||
+      !env.WEBHOOK_SECRET ||
+      !env.EVOLUTION_ALVO_TOKEN ||
+      env.PILOT_ENABLED !== "1"
+    )
       return responder(503, { error: "pilot_disabled" });
     if (!(await credencialValida(request.headers.get("x-webhook-secret"), env.WEBHOOK_SECRET)))
       return responder(401, { error: "unauthorized" });
 
     let payload;
-    try { payload = await corpoLimitado(request); }
-    catch (e) { return responder(e?.message === "corpo_grande" ? 413 : 400, { error: "invalid_body" }); }
+    try {
+      payload = await corpoLimitado(request);
+    } catch (e) {
+      return responder(e?.message === "corpo_grande" ? 413 : 400, { error: "invalid_body" });
+    }
     const event = lerEvento(payload, env.INSTANCE_NAME);
     if (!event) return responder(200, { ok: true, ignored: true });
     const now = Math.floor(Date.now() / 1000);
 
     const pending = await env.DB.prepare(
       "SELECT 1 AS blocked FROM pilot_events WHERE instance = ? AND contact = ? AND outcome IN ('unknown', 'processing') LIMIT 1",
-    ).bind(env.INSTANCE_NAME, event.contact).first();
+    )
+      .bind(env.INSTANCE_NAME, event.contact)
+      .first();
     if (pending) return responder(200, { ok: true, blocked: true });
 
     const previous = await env.DB.prepare(
       "SELECT expires_at FROM pilot_sessions WHERE instance = ? AND contact = ?",
-    ).bind(env.INSTANCE_NAME, event.contact).first();
+    )
+      .bind(env.INSTANCE_NAME, event.contact)
+      .first();
     const sessionActive = Number(previous?.expires_at || 0) > now;
     const responseText = respostaDoPiloto(event.input, sessionActive);
     if (!responseText) return responder(200, { ok: true, ignored: true });
@@ -189,29 +216,39 @@ export default {
     // Sem texto pessoal no banco; deduplicação é feita pelo ID da Evolution.
     const inserted = await env.DB.prepare(
       "INSERT OR IGNORE INTO pilot_events (instance, event_id, contact, outcome, created_at) VALUES (?, ?, ?, 'processing', ?)",
-    ).bind(env.INSTANCE_NAME, event.id, event.contact, now).run();
-    if ((inserted.meta?.changes ?? 0) === 0)
-      return responder(200, { ok: true, duplicate: true });
+    )
+      .bind(env.INSTANCE_NAME, event.id, event.contact, now)
+      .run();
+    if ((inserted.meta?.changes ?? 0) === 0) return responder(200, { ok: true, duplicate: true });
 
     // Limite de teste por número para evitar disparos automáticos excessivos.
     const recent = await env.DB.prepare(
       "SELECT count(*) AS total FROM pilot_events WHERE instance = ? AND contact = ? AND created_at >= ?",
-    ).bind(env.INSTANCE_NAME, event.contact, now - 60).first();
+    )
+      .bind(env.INSTANCE_NAME, event.contact, now - 60)
+      .first();
     if (Number(recent?.total ?? 0) > 4) {
-      await env.DB.prepare("UPDATE pilot_events SET outcome = 'rate_limited' WHERE instance = ? AND event_id = ?")
-        .bind(env.INSTANCE_NAME, event.id).run();
+      await env.DB.prepare(
+        "UPDATE pilot_events SET outcome = 'rate_limited' WHERE instance = ? AND event_id = ?",
+      )
+        .bind(env.INSTANCE_NAME, event.id)
+        .run();
       return responder(200, { ok: true, rate_limited: true });
     }
     const idem = "flowbot:" + (await hash(env.INSTANCE_NAME + ":" + event.id));
     const result = await enviarGateway(env, event.contact, responseText, idem);
     await env.DB.prepare(
       "UPDATE pilot_events SET outcome = ?, provider_message_id = ? WHERE instance = ? AND event_id = ?",
-    ).bind(result.outcome, result.id, env.INSTANCE_NAME, event.id).run();
+    )
+      .bind(result.outcome, result.id, env.INSTANCE_NAME, event.id)
+      .run();
 
     if (result.outcome === "sent") {
       await env.DB.prepare(
         "INSERT INTO pilot_sessions (instance, contact, expires_at) VALUES (?, ?, ?) ON CONFLICT(instance, contact) DO UPDATE SET expires_at = excluded.expires_at",
-      ).bind(env.INSTANCE_NAME, event.contact, now + SEGUNDOS_SESSAO).run();
+      )
+        .bind(env.INSTANCE_NAME, event.contact, now + SEGUNDOS_SESSAO)
+        .run();
     }
     // Nunca entregar detalhes da requisição externa no webhook.
     return responder(200, { ok: true, outcome: result.outcome });
