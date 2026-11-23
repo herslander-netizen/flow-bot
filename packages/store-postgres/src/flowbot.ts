@@ -66,13 +66,14 @@ export type ResultadoDoRecebimento =
   | { duplicado: true }
   | { duplicado: false; status: Sessao["status"]; motivo: string; acoes: Acao[] };
 
-/** Adaptador de canal: entrega uma ação. Precisa ser idempotente pela `chave` (reenvio após falha). */
+/** Adaptador de canal: usa a `chave` para deduplicar quando o destino permite.
+ * Entregas de mensagens sem confirmação confiável devem retornar `incerto`. */
 export type AdaptadorDeSaida = (entrega: {
   workspaceId: string;
   conversationKey: string;
   chave: string;
   acao: Acao;
-}) => Promise<{ ok: boolean; erro?: string }>;
+}) => Promise<{ ok: boolean; erro?: string; incerto?: true }>;
 
 /** Filtros das filas: um processo pode atender todos os workspaces ou só um. */
 export type OpcoesDaFila = { limite?: number; workspaceId?: string };
@@ -354,7 +355,7 @@ export class FlowBot {
     reservados: Awaited<ReturnType<FlowBot["reservarSaidas"]>>,
   ) {
     for (const item of reservados) {
-      let resultado: { ok: boolean; erro?: string };
+      let resultado: Awaited<ReturnType<AdaptadorDeSaida>>;
       try {
         resultado = await adaptador({
           workspaceId: item.workspace_id,
@@ -403,6 +404,19 @@ export class FlowBot {
             [item.workspace_id, item.id, item.conversation_key, resultado.ok, this.agora()],
           );
         });
+        continue;
+      }
+      if (!resultado.ok && resultado.incerto) {
+        // Sem schema novo: failed + reason identifica revisão manual, não falha definitiva.
+        await this.pool.query(
+          `UPDATE flow_bot.outbound SET status = 'failed', locked_until = NULL, last_error = $3
+            WHERE id = $1 AND attempts = $2 AND status = 'sending'`,
+          [
+            item.id,
+            item.attempts,
+            resultado.erro?.slice(0, 500) ?? "entrega_incerta_revisao_manual",
+          ],
+        );
         continue;
       }
       if (resultado.ok) {

@@ -56,3 +56,15 @@ Uma falha de envio não deve destruir o estado da conversa. Registrar falha, apl
 ## Segurança da autoria por IA
 
 Tratar arquivos, mensagens de cliente e textos de terceiros como dados não confiáveis, nunca como instruções para o agente de autoria. A IA pode propor configuração, mas a aplicação valida e o humano aprova. Proibir importação de código executável.
+
+## Saída Evolution com confirmação incerta
+
+Uma resposta HTTP 2xx com ID de mensagem confirma **aceitação pela Evolution**, não entrega ao destinatário.
+Um timeout, erro de transporte, resposta HTTP inconclusiva ou 2xx sem ID utilizável vira `failed`
+com `last_error` começando por `evolution_incerto_`. Esse registro pede revisão manual e **não é reenfileirado**.
+Antes de qualquer reenvio manual, confirme no provedor que a primeira tentativa não foi aceita;
+se não for possível confirmar, registre a pendência e não reenvie. As próximas ações da conversa continuam
+seguindo as regras existentes.
+
+Isso não oferece entrega exatamente uma vez. Queda do processo e expiração da reserva antes que o
+resultado seja registrado continuam fora desta correção, assim como reconciliação automática de mensagens.

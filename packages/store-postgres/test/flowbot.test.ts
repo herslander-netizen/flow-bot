@@ -182,6 +182,31 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     ]);
   });
 
+  it("saída incerta não é reenviada depois do backoff", async () => {
+    const c = cenario({ maxTentativas: 3 });
+    await c.bot.publicar(c.ws, menu());
+    await c.dizer("oi");
+    const chaves: string[] = [];
+    const adaptador: AdaptadorDeSaida = async ({ chave }) => {
+      chaves.push(chave);
+      return chaves.length === 1
+        ? { ok: false, incerto: true, erro: "evolution_incerto_timeout" }
+        : { ok: true };
+    };
+    await c.bot.entregarPendentes(adaptador, { workspaceId: c.ws });
+    c.avancar(60);
+    expect(await c.bot.entregarPendentes(adaptador, { workspaceId: c.ws })).toBe(0);
+    expect(chaves).toEqual(["whatsapp:1#0", "whatsapp:1#1"]);
+    const r = await pool.query(
+      "SELECT status, attempts, last_error FROM flow_bot.outbound WHERE workspace_id = $1 ORDER BY id",
+      [c.ws],
+    );
+    expect(r.rows).toEqual([
+      { status: "failed", attempts: 1, last_error: "evolution_incerto_timeout" },
+      { status: "sent", attempts: 1, last_error: null },
+    ]);
+  });
+
   it("respostas da mesma conversa saem sempre na ordem", async () => {
     const c = cenario();
     await c.bot.publicar(c.ws, menu());
