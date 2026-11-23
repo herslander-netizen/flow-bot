@@ -36,6 +36,11 @@ export const ConfigDoWorkspace = z
       .string()
       .regex(/^[A-Z][A-Z0-9_]*$/)
       .optional(),
+    /** Segredo de entrada específico da instância, não compartilhado com outros negócios. */
+    webhookSecretEnv: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]*$/)
+      .optional(),
   })
   .strict();
 
@@ -67,6 +72,8 @@ export type ConfigDoServidor = {
   tokensEvolution: Map<string, string>;
   /** Tokens de handoff do operador, somente no servidor. */
   tokensOperadores: Map<string, string>;
+  /** Segredos de entrada por workspace; nunca expostos ao cliente. */
+  webhookSecrets: Map<string, string>;
 };
 
 export class ConfigInvalida extends Error {}
@@ -99,12 +106,26 @@ export function carregarConfig(
   const vistosEvolution = new Set<string>();
   const tokensOperadores = new Map<string, string>();
   const vistosOperadores = new Set<string>();
+  const webhookSecrets = new Map<string, string>();
+  const vistosWebhooks = new Set<string>();
   for (const w of lista.data.workspaces) {
     if (w.tokenEnv) {
       const valor = env[w.tokenEnv];
       if (!valor)
         throw new ConfigInvalida(`Variável ${w.tokenEnv} (token de ${w.id}) não está definida.`);
       tokens.set(w.id, valor);
+    }
+    // Cada instância deve ter uma credencial de entrada própria no modo gateway.
+    if (provider === "alvo" && !w.webhookSecretEnv)
+      throw new ConfigInvalida(`Workspace ${w.id} requer webhookSecretEnv na Evolution Alvo.`);
+    if (w.webhookSecretEnv) {
+      const valor = env[w.webhookSecretEnv];
+      if (!valor || valor.length < 32)
+        throw new ConfigInvalida(`Segredo de webhook ${w.webhookSecretEnv} exige 32 caracteres.`);
+      if (valor === segredo || vistosWebhooks.has(valor))
+        throw new ConfigInvalida("Cada webhook requer segredo próprio, diferente do global.");
+      vistosWebhooks.add(valor);
+      webhookSecrets.set(w.id, valor);
     }
     if (w.operatorTokenEnv) {
       const tokenOperador = env[w.operatorTokenEnv];
@@ -130,8 +151,14 @@ export function carregarConfig(
   }
   for (const w of lista.data.workspaces) {
     const operador = tokensOperadores.get(w.id);
-    if (operador && (operador === tokens.get(w.id) || operador === tokensEvolution.get(w.id)))
-      throw new ConfigInvalida("Token do operador não pode reutilizar credenciais de sistemas.");
+    const webhook = webhookSecrets.get(w.id);
+    const gateway = tokensEvolution.get(w.id);
+    const externo = tokens.get(w.id);
+    if (
+      (operador && (operador === externo || operador === gateway || operador === webhook)) ||
+      (webhook && (webhook === externo || webhook === gateway))
+    )
+      throw new ConfigInvalida("Segredos de webhook, operador, gateway e sistema precisam ser distintos.");
   }
   return {
     porta: Number(env["PORT"] ?? 8080),
@@ -149,5 +176,6 @@ export function carregarConfig(
     tokens,
     tokensEvolution,
     tokensOperadores,
+    webhookSecrets,
   };
 }
