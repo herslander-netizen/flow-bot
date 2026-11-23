@@ -64,11 +64,14 @@ const cfg = {
   maxOutputTokens: 4096,
 };
 const successful = (value: unknown = resultRaw) =>
-  new Response(JSON.stringify({
-    stop_reason: "end_turn",
-    content: [{ type: "text", text: JSON.stringify(value) }],
-    usage: { input_tokens: 200, output_tokens: 1200 },
-  }), { status: 200 });
+  new Response(
+    JSON.stringify({
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: JSON.stringify(value) }],
+      usage: { input_tokens: 200, output_tokens: 1200 },
+    }),
+    { status: 200 },
+  );
 
 describe("Oficina multiagente: Claude produz, validadores controlam", () => {
   it("valida identidade e tamanho do briefing, sem conversas ou tokens arbitrários", () => {
@@ -89,10 +92,13 @@ describe("Oficina multiagente: Claude produz, validadores controlam", () => {
   });
 
   it("rejeita tentativas do modelo de publicar fluxo", () => {
-    const published = { ...resultRaw, flow_json: JSON.stringify({
-      ...flow,
-      flow: { ...flow.flow, status: "published" },
-    }) };
+    const published = {
+      ...resultRaw,
+      flow_json: JSON.stringify({
+        ...flow,
+        flow: { ...flow.flow, status: "published" },
+      }),
+    };
     const reviewed = revisarPropostaDosAgentes(published);
     expect(reviewed.status).toBe("requires_revision");
     expect(reviewed.flow).toBeNull();
@@ -156,41 +162,58 @@ describe("Oficina multiagente: Claude produz, validadores controlam", () => {
   it("não chama IA quando desabilitada, nem tenta novamente após timeout", async () => {
     const mock = vi.fn();
     expect(await criarPropostaComClaude({ ...cfg, enabled: false }, input, mock)).toMatchObject({
-      ok: false, error: "claude_authoring_disabled",
+      ok: false,
+      error: "claude_authoring_disabled",
     });
     expect(mock).not.toHaveBeenCalled();
-    const timeout = vi.fn(async () => { throw new Error("timeout"); });
+    const timeout = vi.fn(async () => {
+      throw new Error("timeout");
+    });
     expect(await criarPropostaComClaude(cfg, input, timeout)).toMatchObject({
-      ok: false, error: "claude_network_uncertain",
+      ok: false,
+      error: "claude_network_uncertain",
     });
     expect(timeout).toHaveBeenCalledOnce();
   });
 
   it("respostas truncadas, HTTP 429 e JSON corrompido não entram no runtime", async () => {
-    const truncated = vi.fn(async () => new Response(JSON.stringify({
-      stop_reason: "max_tokens",
-      content: [{ type: "text", text: JSON.stringify(resultRaw) }],
-    }), { status: 200 }));
+    const truncated = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            stop_reason: "max_tokens",
+            content: [{ type: "text", text: JSON.stringify(resultRaw) }],
+          }),
+          { status: 200 },
+        ),
+    );
     expect(await criarPropostaComClaude(cfg, input, truncated)).toMatchObject({
-      ok: false, error: "claude_incomplete",
+      ok: false,
+      error: "claude_incomplete",
     });
     const limited = vi.fn(async () => new Response("", { status: 429 }));
     expect(await criarPropostaComClaude(cfg, input, limited)).toMatchObject({
-      ok: false, status: 429,
+      ok: false,
+      status: 429,
     });
-    const corrupted = vi.fn(async () => successful({ flow_json: "not json", scenarios_json: "no", gaps: [] }));
+    const corrupted = vi.fn(async () =>
+      successful({ flow_json: "not json", scenarios_json: "no", gaps: [] }),
+    );
     const out = await criarPropostaComClaude(cfg, input, corrupted);
     expect(out.ok).toBe(true);
     if (out.ok) expect(out.proposal.status).toBe("requires_revision");
   });
 
   it("servidor de atendimento não expõe endpoint de inferência Claude", async () => {
-    const serverCfg = carregarConfig({
-      DATABASE_URL: "postgres://offline",
-      EVOLUTION_URL: "https://evo.example",
-      EVOLUTION_API_KEY: "fake",
-      EVOLUTION_WEBHOOK_SECRET: "s".repeat(40),
-    }, { workspaces: [{ id: "x", instance: "x", flowId: "f" }] });
+    const serverCfg = carregarConfig(
+      {
+        DATABASE_URL: "postgres://offline",
+        EVOLUTION_URL: "https://evo.example",
+        EVOLUTION_API_KEY: "fake",
+        EVOLUTION_WEBHOOK_SECRET: "s".repeat(40),
+      },
+      { workspaces: [{ id: "x", instance: "x", flowId: "f" }] },
+    );
     const server = criarServidor({
       cfg: serverCfg,
       bot: {} as FlowBot,
@@ -217,7 +240,9 @@ describe.skipIf(!process.env["DATABASE_URL"])("Cota idempotente da oficina no Po
     pool = new pg.Pool({ connectionString: process.env["DATABASE_URL"], max: 3 });
     await migrar(pool);
   });
-  afterAll(async () => { await pool.end(); });
+  afterAll(async () => {
+    await pool.end();
+  });
   it("impede chave repetida e isola cota por workspace", async () => {
     const ws = "authoring-" + randomUUID();
     expect(await reservarPedidoClaude(pool, ws, "request-00000001", 2)).toBe("reserved");

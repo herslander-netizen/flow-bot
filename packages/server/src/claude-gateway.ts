@@ -91,12 +91,9 @@ function objeto(value: unknown): value is Record<string, unknown> {
 export function validarEntradaDaOficina(value: unknown): EntradaDaOficina | null {
   if (!objeto(value)) return null;
   const { workspaceId, requestKey, briefing, perfil } = value;
-  if (typeof workspaceId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(workspaceId))
-    return null;
-  if (typeof requestKey !== "string" || !/^[A-Za-z0-9_.:-]{16,128}$/.test(requestKey))
-    return null;
-  if (typeof briefing !== "string" || !briefing.trim() || briefing.length > 6000)
-    return null;
+  if (typeof workspaceId !== "string" || !/^[A-Za-z0-9_-]{1,120}$/.test(workspaceId)) return null;
+  if (typeof requestKey !== "string" || !/^[A-Za-z0-9_.:-]{16,128}$/.test(requestKey)) return null;
+  if (typeof briefing !== "string" || !briefing.trim() || briefing.length > 6000) return null;
   // Um perfil malformado jamais é passado ao fornecedor como documentação válida.
   if (perfil !== undefined && !PerfilDeRealidade.safeParse(perfil).success) return null;
   return perfil === undefined
@@ -106,7 +103,11 @@ export function validarEntradaDaOficina(value: unknown): EntradaDaOficina | null
 
 function lerJson(text: unknown): unknown {
   if (typeof text !== "string" || text.length > 128_000) return null;
-  try { return JSON.parse(text); } catch { return null; }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -138,7 +139,11 @@ export function revisarPropostaDosAgentes(
   }));
   const candidate = validation.flow;
   if (candidate && candidate.flow.status !== "draft")
-    problems.push({ code: "estrutura", message: "O agente só pode produzir rascunhos.", path: "flow.status" });
+    problems.push({
+      code: "estrutura",
+      message: "O agente só pode produzir rascunhos.",
+      path: "flow.status",
+    });
   if (candidate) {
     for (const [i, node] of candidate.nodes.entries()) {
       if (!ALLOWED_TYPES.has(node.type))
@@ -150,15 +155,23 @@ export function revisarPropostaDosAgentes(
     }
   }
   const scenarios = ArquivoDeCenarios.safeParse(scenariosRaw);
-  if (!scenarios.success || scenarios.data.scenarios.length > 12 ||
-      scenarios.data.scenarios.some((s) => s.steps.length > 15))
+  if (
+    !scenarios.success ||
+    scenarios.data.scenarios.length > 12 ||
+    scenarios.data.scenarios.some((s) => s.steps.length > 15)
+  )
     problems.push({
       code: "estrutura",
       message: "Os cenários estão inválidos ou excedem os limites da oficina.",
       path: "scenarios",
     });
   const tests: ResultadoDaOficina["tests"] = [];
-  if (validation.ok && candidate?.flow.status === "draft" && problems.length === 0 && scenarios.success) {
+  if (
+    validation.ok &&
+    candidate?.flow.status === "draft" &&
+    problems.length === 0 &&
+    scenarios.success
+  ) {
     try {
       const compiled = compilar(candidate, options);
       const realidade = perfil?.success ? realidadeDeExemplo(perfil.data) : {};
@@ -180,7 +193,10 @@ export function revisarPropostaDosAgentes(
   }
   const allGreen = tests.length > 0 && tests.every((x) => x.ok);
   return {
-    status: problems.length === 0 && allGreen && gaps.length === 0 ? "ready_for_review" : "requires_revision",
+    status:
+      problems.length === 0 && allGreen && gaps.length === 0
+        ? "ready_for_review"
+        : "requires_revision",
     flow: candidate?.flow.status === "draft" ? candidate : null,
     scenarios: scenarios.success ? scenarios.data : null,
     gaps,
@@ -217,13 +233,15 @@ export async function criarPropostaComClaude(
         max_tokens: cfg.maxOutputTokens,
         system: SYSTEM,
         output_config: { format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
-        messages: [{
-          role: "user",
-          content: JSON.stringify({
-            briefing: input.briefing,
-            reality_profile: input.perfil ?? null,
-          }),
-        }],
+        messages: [
+          {
+            role: "user",
+            content: JSON.stringify({
+              briefing: input.briefing,
+              reality_profile: input.perfil ?? null,
+            }),
+          },
+        ],
       }),
       redirect: "error",
       signal: AbortSignal.timeout(60_000),
@@ -231,8 +249,7 @@ export async function criarPropostaComClaude(
   } catch {
     return { ok: false, status: 502, error: "claude_network_uncertain" };
   }
-  if (response.status === 429)
-    return { ok: false, status: 429, error: "claude_rate_limited" };
+  if (response.status === 429) return { ok: false, status: 429, error: "claude_rate_limited" };
   if (!response.ok)
     return {
       ok: false,
@@ -244,18 +261,27 @@ export async function criarPropostaComClaude(
     const text = await response.text();
     if (text.length > 150_000) return { ok: false, status: 502, error: "claude_response_large" };
     payload = JSON.parse(text);
-  } catch { return { ok: false, status: 502, error: "claude_invalid_response" }; }
-  if (!objeto(payload) || payload["stop_reason"] !== "end_turn" || !Array.isArray(payload["content"]))
+  } catch {
+    return { ok: false, status: 502, error: "claude_invalid_response" };
+  }
+  if (
+    !objeto(payload) ||
+    payload["stop_reason"] !== "end_turn" ||
+    !Array.isArray(payload["content"])
+  )
     return { ok: false, status: 502, error: "claude_incomplete" };
   const blocks: unknown[] = payload["content"];
   if (blocks.length !== 1 || !objeto(blocks[0]) || blocks[0]["type"] !== "text")
     return { ok: false, status: 502, error: "claude_wrong_content" };
   const raw = lerJson(blocks[0]["text"]);
-  if (!objeto(raw) || typeof raw["flow_json"] !== "string" ||
-      typeof raw["scenarios_json"] !== "string")
+  if (
+    !objeto(raw) ||
+    typeof raw["flow_json"] !== "string" ||
+    typeof raw["scenarios_json"] !== "string"
+  )
     return { ok: false, status: 502, error: "claude_wrong_schema" };
   const usageRaw = objeto(payload["usage"]) ? payload["usage"] : {};
-  const safeUsage = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
+  const safeUsage = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0);
   return {
     ok: true,
     proposal: revisarPropostaDosAgentes(raw, input.perfil, {

@@ -4,15 +4,15 @@
 
 ## Arquitetura e responsabilidades
 
-| Agente | Responsabilidade | Execução |
-| --- | --- | --- |
-| Intake | Receber briefing sanitizado e perfil de realidade válido por workspace | Local, determinístico |
-| Claude / Arquiteto | Propor grafo declarativo `flow-bot/v0` + cenários + lacunas | Anthropic Messages API, sob demanda |
-| Validador | Validar estrutura, nós, conexões, permissões, limites e placeholders | Código local `validarFluxo` |
-| Guardião de ações | Rejeitar `action.webhook` e quaisquer nós não autorizados na autoria | Código local; sem ferramentas de IA |
-| Simulador | Compilar e reproduzir cenários sem WhatsApp ou chamadas externas | Código local `compilar` + `simular` |
-| Revisor | Examinar lacunas, corrigir informações e aprovar versão | Operador humano |
-| Publicador | Publicar nova versão após aprovação por procedimento distinto | Comando manual existente, nunca usado pela oficina |
+| Agente             | Responsabilidade                                                       | Execução                                           |
+| ------------------ | ---------------------------------------------------------------------- | -------------------------------------------------- |
+| Intake             | Receber briefing sanitizado e perfil de realidade válido por workspace | Local, determinístico                              |
+| Claude / Arquiteto | Propor grafo declarativo `flow-bot/v0` + cenários + lacunas            | Anthropic Messages API, sob demanda                |
+| Validador          | Validar estrutura, nós, conexões, permissões, limites e placeholders   | Código local `validarFluxo`                        |
+| Guardião de ações  | Rejeitar `action.webhook` e quaisquer nós não autorizados na autoria   | Código local; sem ferramentas de IA                |
+| Simulador          | Compilar e reproduzir cenários sem WhatsApp ou chamadas externas       | Código local `compilar` + `simular`                |
+| Revisor            | Examinar lacunas, corrigir informações e aprovar versão                | Operador humano                                    |
+| Publicador         | Publicar nova versão após aprovação por procedimento distinto          | Comando manual existente, nunca usado pela oficina |
 
 Os agentes de validação e simulação são **estágios determinísticos do código**. Não são processos autônomos de Claude Code nem uma equipe remota executando alterações por conta própria.
 
