@@ -358,8 +358,11 @@ export class FlowBot {
       // Uma operação de takeover espera a transmissão já em andamento terminar.
       // Ao retornar sucesso, nenhuma saída nova pode partir para o canal.
       // O lock é por conversa, não por workspace: outros clientes continuam atendidos.
-      if (item.action.type === "send_text" || item.action.type === "send_quick_replies" ||
-          item.action.type === "webhook") {
+      if (
+        item.action.type === "send_text" ||
+        item.action.type === "send_quick_replies" ||
+        item.action.type === "webhook"
+      ) {
         const tentativa = await emTransacao(this.pool, async (c) => {
           const conversa = await c.query<{ session: Sessao }>(
             `SELECT session FROM flow_bot.conversations

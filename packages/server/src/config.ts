@@ -111,7 +111,9 @@ export function carregarConfig(
       if (!tokenOperador || tokenOperador.length < 32)
         throw new ConfigInvalida(`Token de operador ${w.operatorTokenEnv} exige 32 caracteres.`);
       if (tokenOperador === segredo || vistosOperadores.has(tokenOperador))
-        throw new ConfigInvalida("Token de operador deve ser exclusivo e não pode reutilizar o webhook.");
+        throw new ConfigInvalida(
+          "Token de operador deve ser exclusivo e não pode reutilizar o webhook.",
+        );
       vistosOperadores.add(tokenOperador);
       tokensOperadores.set(w.id, tokenOperador);
     }
