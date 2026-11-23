@@ -4,7 +4,8 @@
       "id": "flowbot-piloto",
       "instance": "alvo-flowbot",
       "flowId": "flow-atendimento",
-      "evolutionTokenEnv": "EVOLUTION_ALVO_TOKEN_FLOWBOT"
+      "evolutionTokenEnv": "EVOLUTION_ALVO_TOKEN_FLOWBOT",
+      "webhookSecretEnv": "WEBHOOK_FLOWBOT"
     }
   ]
 }
