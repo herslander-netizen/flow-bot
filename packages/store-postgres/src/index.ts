@@ -11,3 +11,4 @@ export {
 export { anonimizar } from "./anonimizar.js";
 export { contadoresDoResultado, frasesDoResultado, type TipoDeFrase } from "./aprendizado.js";
 export { StudioDrafts, type StudioScope } from "./studio-drafts.js";
+export { StudioApprovals } from "./studio-approvals.js";
