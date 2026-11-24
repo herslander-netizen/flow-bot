@@ -48,8 +48,9 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   } catch {
     throw new Error("invalid_body");
   }
-  if (!result || typeof result !== "object" || Array.isArray(result))
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
     throw new Error("invalid_body");
+  }
   return result as Record<string, unknown>;
 }
 
@@ -65,8 +66,9 @@ function revision(value: unknown, allowZero = false): number {
 }
 
 function fields(input: Record<string, unknown>, allowed: readonly string[]) {
-  if (Object.keys(input).some((key) => !allowed.includes(key)))
+  if (Object.keys(input).some((key) => !allowed.includes(key))) {
     throw new Error("invalid_body");
+  }
 }
 
 /** Separate authoring server. Bind only to a private interface behind a trusted BFF. */
@@ -101,9 +103,8 @@ export function createStudioApi(deps: Dependencies) {
       if (!principal) return reply(res, 401, { error: "unauthorized" });
       const { scope, permissions } = principal;
       const url = new URL(req.url ?? "/", "http://localhost");
-      const match = /^\/studio\/v1\/flows\/([A-Za-z0-9_-]{1,80})\/(draft|history|simulate|approval)$/.exec(
-        url.pathname,
-      );
+      const pattern = /^\/studio\/v1\/flows\/([A-Za-z0-9_-]{1,80})\/(draft|history|simulate|approval)$/;
+      const match = pattern.exec(url.pathname);
       const flowId = match?.[1];
       const action = match?.[2];
       if (!flowId || !action) return reply(res, 404, { error: "not_found" });
@@ -157,8 +158,9 @@ export function createStudioApi(deps: Dependencies) {
           input.baseRevision === undefined
             ? null
             : await deps.drafts.get(scope, flowId, revision(input.baseRevision));
-        if (input.baseRevision !== undefined && !base)
+        if (input.baseRevision !== undefined && !base) {
           return reply(res, 404, { error: "not_found" });
+        }
         const result = avaliarRascunhoStudio({
           draft: selected.document,
           scenarios: input.scenarios,
