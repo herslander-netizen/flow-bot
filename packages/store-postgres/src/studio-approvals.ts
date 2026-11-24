@@ -46,10 +46,9 @@ export class StudioApprovals {
     scenarios: unknown,
   ) {
     assertScope(scope, flowId);
-    if (!scope.canApprove || confirmation !== true)
+    if (scope.canApprove !== true || confirmation !== true)
       return { ok: false as const, error: "approval_not_authorized" };
-    if (!Number.isSafeInteger(revision) || revision < 1)
-      throw new Error("studio_revisao_invalida");
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new Error("studio_revisao_invalida");
     const parsed = ArquivoDeCenarios.safeParse(scenarios);
     if (
       !parsed.success ||
@@ -57,13 +56,18 @@ export class StudioApprovals {
       parsed.data.scenarios.some(
         (s) =>
           s.steps.length > 20 ||
-          !s.steps.some(
-            (step) =>
-              step.expect &&
-              Object.values(step.expect).some((v) =>
-                Array.isArray(v) ? v.length > 0 : v !== undefined,
-              ),
-          ),
+          !s.steps.some((step) => {
+            const e = step.expect;
+            return (
+              e &&
+              (e.replies !== undefined ||
+                (e.contains?.some((value) => value.trim().length > 0) ?? false) ||
+                e.status !== undefined ||
+                e.cursor !== undefined ||
+                e.handoff !== undefined ||
+                Object.keys(e.variables ?? {}).length > 0)
+            );
+          }),
       )
     )
       return { ok: false as const, error: "independent_scenarios_required" };
@@ -131,7 +135,15 @@ export class StudioApprovals {
     );
     const row = result.rows[0];
     if (!row || hash(row.document_text) !== row.document_sha256) return null;
-    const { document_text, ...approval } = row;
-    return { ...approval, approved: true as const, published: false as const };
+    return {
+      revision: row.revision,
+      reviewer_id: row.reviewer_id,
+      document_sha256: row.document_sha256,
+      evidence_sha256: row.evidence_sha256,
+      scenario_count: row.scenario_count,
+      approved_at: row.approved_at,
+      approved: true as const,
+      published: false as const,
+    };
   }
 }
