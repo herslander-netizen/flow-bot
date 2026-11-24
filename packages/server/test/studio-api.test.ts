@@ -99,4 +99,45 @@ describe.skipIf(!database)("Private Studio API", () => {
     const sql = "SELECT 1 FROM flow_bot.flow_versions WHERE workspace_id = $1";
     expect((await pool.query(sql, [scope.workspaceId])).rowCount).toBe(0);
   });
+
+  it("rechecks managed membership and rejects static credentials in managed mode", async () => {
+    const managedScope = { ...scope, workspaceId: randomUUID(), actorId: randomUUID() };
+    let permitted = true;
+    const managed = createStudioApi({
+      drafts: new StudioDrafts(pool),
+      approvals: new StudioApprovals(pool),
+      resolveIdentity: async (token, selected) => {
+        if (!permitted || token !== "verified" || selected !== managedScope.workspaceId) {
+          return null;
+        }
+        return { scope: managedScope, permissions: ["read", "write", "simulate"] };
+      },
+    });
+    await new Promise<void>((resolve) => managed.listen(0, "127.0.0.1", resolve));
+    const address = managed.address() as AddressInfo;
+    const base = "http://127.0.0.1:" + address.port + path;
+    const headers = {
+      Authorization: "Bearer verified",
+      "X-Studio-Workspace": managedScope.workspaceId,
+      "Content-Type": "application/json",
+    };
+    try {
+      const draft = JSON.stringify({ expectedRevision: 0, document: fixture() });
+      const saved = await fetch(base + "/draft", { method: "PUT", headers, body: draft });
+      expect(saved.status).toBe(200);
+      const stored = await fetch(base + "/draft", { headers });
+      expect(await stored.json()).toMatchObject({ revision: 1, actor_id: managedScope.actorId });
+      const foreign = { ...headers, "X-Studio-Workspace": scope.workspaceId };
+      expect((await fetch(base + "/draft", { headers: foreign })).status).toBe(401);
+      const staticHeaders = { ...headers, Authorization: "Bearer " + writer };
+      expect((await fetch(base + "/draft", { headers: staticHeaders })).status).toBe(401);
+      const review = JSON.stringify({ revision: 1, confirmation: true, scenarios });
+      const denied = await fetch(base + "/approval", { method: "POST", headers, body: review });
+      expect(denied.status).toBe(403);
+      permitted = false;
+      expect((await fetch(base + "/draft", { headers })).status).toBe(401);
+    } finally {
+      await new Promise<void>((resolve) => managed.close(() => resolve()));
+    }
+  });
 });
