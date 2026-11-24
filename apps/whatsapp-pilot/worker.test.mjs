@@ -162,9 +162,7 @@ describe("piloto Cloudflare FlowBot", () => {
     expect(send).not.toHaveBeenCalled();
 
     const semLista = env(db, { PILOT_ALLOWED_NUMBERS: "" });
-    const health = await resposta(
-      await worker.fetch(new Request("https://test/health"), semLista),
-    );
+    const health = await resposta(await worker.fetch(new Request("https://test/health"), semLista));
     expect(health.body).toMatchObject({ ok: true, configured: false });
     expect((await worker.fetch(chamada("teste flowbot"), semLista)).status).toBe(503);
     expect(send).not.toHaveBeenCalled();
