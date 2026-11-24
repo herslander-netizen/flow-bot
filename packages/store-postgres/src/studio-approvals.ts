@@ -52,27 +52,19 @@ export class StudioApprovals {
       throw new Error("studio_revisao_invalida");
     }
     const parsed = ArquivoDeCenarios.safeParse(scenarios);
-    if (
-      !parsed.success ||
-      parsed.data.scenarios.length > 20 ||
-      parsed.data.scenarios.some(
-        (s) =>
-          s.steps.length > 20 ||
-          !s.steps.some((step) => {
-            const e = step.expect;
-            if (!e) return false;
-            const containsText = e.contains?.some((value) => value.trim().length > 0);
-            return (
-              e.replies !== undefined ||
-              containsText === true ||
-              e.status !== undefined ||
-              e.cursor !== undefined ||
-              e.handoff !== undefined ||
-              Object.keys(e.variables ?? {}).length > 0
-            );
-          }),
-      )
-    )
+    if (!parsed.success) return { ok: false as const, error: "independent_scenarios_required" };
+    const valid = parsed.data.scenarios.every((scenario) => {
+      if (scenario.steps.length > 20) return false;
+      return scenario.steps.some((step) => {
+        const e = step.expect;
+        if (!e) return false;
+        if (e.replies !== undefined || e.status !== undefined) return true;
+        if (e.cursor !== undefined || e.handoff !== undefined) return true;
+        if (Object.keys(e.variables ?? {}).length > 0) return true;
+        return e.contains?.some((value) => value.trim().length > 0) === true;
+      });
+    });
+    if (!valid || parsed.data.scenarios.length > 20)
       return { ok: false as const, error: "independent_scenarios_required" };
     const evidence = JSON.stringify(parsed.data);
     if (Buffer.byteLength(evidence, "utf8") > 128 * 1024)
@@ -91,8 +83,9 @@ export class StudioApprovals {
         key,
       );
       const latest = saved.rows[0];
-      if (!latest || latest.revision !== revision)
+      if (!latest || latest.revision !== revision) {
         return { ok: false as const, error: "revision_conflict" };
+      }
       const documentHash = hash(latest.document_text);
       const existing = await c.query<Approval>(
         `SELECT revision, reviewer_id, document_sha256, evidence_sha256, scenario_count, approved_at
@@ -100,8 +93,7 @@ export class StudioApprovals {
          WHERE workspace_id = $1 AND environment = $2 AND flow_id = $3 AND revision = $4`,
         [...key, revision],
       );
-      if (existing.rows[0])
-        return { ok: false as const, error: "already_approved" };
+      if (existing.rows[0]) return { ok: false as const, error: "already_approved" };
 
       const plan = compilar(JSON.parse(latest.document_text), { perfis: this.perfis });
       const profile = this.perfis.find((p) => p.id === plan.doc.reality);
