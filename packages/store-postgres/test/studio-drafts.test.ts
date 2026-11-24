@@ -53,9 +53,8 @@ describe.skipIf(!database)("Studio draft storage over PostgreSQL", () => {
     expect((await restarted.get(s, flowId))?.document.flow.name).toBe("Novo nome");
     expect((await restarted.history(s, flowId)).map((r) => r.revision)).toEqual([2, 1]);
     expect((await restarted.history(s, flowId, 2)).map((r) => r.revision)).toEqual([1]);
-    const published = await pool.query("SELECT 1 FROM flow_bot.flow_versions WHERE workspace_id = $1", [
-      s.workspaceId,
-    ]);
+    const sql = "SELECT 1 FROM flow_bot.flow_versions WHERE workspace_id = $1";
+    const published = await pool.query(sql, [s.workspaceId]);
     expect(published.rowCount).toBe(0);
   });
 
