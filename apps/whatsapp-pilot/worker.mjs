@@ -70,6 +70,7 @@ function textoNormalizado(value) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
 // O piloto não é público: sem lista explícita de telefones de teste, não responde.
 function contatoPermitido(contact, lista) {
   if (typeof lista !== "string" || !lista.trim()) return false;
