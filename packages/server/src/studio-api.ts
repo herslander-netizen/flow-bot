@@ -32,8 +32,9 @@ function reply(res: ServerResponse, status: number, data: unknown) {
 }
 
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
-  if (req.headers["content-type"]?.split(";")[0]?.trim() !== "application/json")
+  if (req.headers["content-type"]?.split(";")[0]?.trim() !== "application/json") {
     throw new Error("invalid_body");
+  }
   const parts: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
@@ -60,8 +61,9 @@ function revision(value: unknown, allowZero = false): number {
     !Number.isInteger(value) ||
     value < (allowZero ? 0 : 1) ||
     value > 2147483647
-  )
+  ) {
     throw new Error("invalid_revision");
+  }
   return value;
 }
 
@@ -82,8 +84,9 @@ export function createStudioApi(deps: Dependencies) {
       !/^[A-Za-z0-9_-]{1,120}$/.test(p.workspaceId) ||
       !/^[A-Za-z0-9_-]{1,120}$/.test(p.actorId) ||
       !["test", "staging"].includes(p.environment)
-    )
+    ) {
       throw new Error("studio_principal_invalid");
+    }
     tokens.add(p.token);
     const scope: StudioScope = {
       workspaceId: p.workspaceId,
@@ -96,18 +99,20 @@ export function createStudioApi(deps: Dependencies) {
   return createServer(async (req, res) => {
     try {
       const header = req.headers.authorization;
-      if (!header?.startsWith("Bearer ") || header.length > 4096)
+      if (!header?.startsWith("Bearer ") || header.length > 4096) {
         return reply(res, 401, { error: "unauthorized" });
+      }
       const supplied = digest(header.slice(7));
       const principal = principals.find((p) => timingSafeEqual(p.digest, supplied));
       if (!principal) return reply(res, 401, { error: "unauthorized" });
       const { scope, permissions } = principal;
       const url = new URL(req.url ?? "/", "http://localhost");
-      const pattern = /^\/studio\/v1\/flows\/([A-Za-z0-9_-]{1,80})\/(draft|history|simulate|approval)$/;
-      const match = pattern.exec(url.pathname);
+      const match = /^\/studio\/v1\/flows\/([A-Za-z0-9_-]{1,80})\/([a-z]+)$/.exec(url.pathname);
       const flowId = match?.[1];
       const action = match?.[2];
-      if (!flowId || !action) return reply(res, 404, { error: "not_found" });
+      if (!flowId || !action || !["draft", "history", "simulate", "approval"].includes(action)) {
+        return reply(res, 404, { error: "not_found" });
+      }
 
       const method = req.method;
       let permission: Permission;
@@ -127,8 +132,9 @@ export function createStudioApi(deps: Dependencies) {
       const queryKey = action === "draft" && method === "GET" ? "revision" : "before";
       const allowsQuery = method === "GET" && ["draft", "history"].includes(action);
       for (const key of url.searchParams.keys()) {
-        if (!allowsQuery || key !== queryKey || url.searchParams.getAll(key).length !== 1)
+        if (!allowsQuery || key !== queryKey || url.searchParams.getAll(key).length !== 1) {
           throw new Error("invalid_query");
+        }
       }
       const value = url.searchParams.get(queryKey);
       const cursor = value === null ? undefined : revision(Number(value));
@@ -181,8 +187,9 @@ export function createStudioApi(deps: Dependencies) {
       return reply(res, conflict ? 409 : 422, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (["invalid_body", "invalid_revision", "invalid_query"].includes(message))
+      if (["invalid_body", "invalid_revision", "invalid_query"].includes(message)) {
         return reply(res, 400, { error: message });
+      }
       if (message === "body_too_large") return reply(res, 413, { error: message });
       return reply(res, 500, { error: "internal_error" });
     }
