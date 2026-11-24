@@ -70,6 +70,12 @@ function textoNormalizado(value) {
     .replace(/\s+/g, " ")
     .trim();
 }
+// O piloto não é público: sem lista explícita de telefones de teste, não responde.
+function contatoPermitido(contact, lista) {
+  if (typeof lista !== "string" || !lista.trim()) return false;
+  return lista.split(/[,;\s]+/).some((item) => item === contact);
+}
+
 function lerEvento(corpo, instance) {
   if (!corpo || typeof corpo !== "object" || Array.isArray(corpo)) return null;
   if (String(corpo.instance ?? "") !== instance) return null;
@@ -171,7 +177,11 @@ export default {
         ok: true,
         component: "flowbot-whatsapp-pilot",
         configured: Boolean(
-          env.DB && env.WEBHOOK_SECRET && env.EVOLUTION_ALVO_TOKEN && env.INSTANCE_NAME,
+          env.DB &&
+            env.WEBHOOK_SECRET &&
+            env.EVOLUTION_ALVO_TOKEN &&
+            env.INSTANCE_NAME &&
+            env.PILOT_ALLOWED_NUMBERS,
         ),
         enabled: env.PILOT_ENABLED === "1",
       });
@@ -205,6 +215,7 @@ export default {
     if (
       !env.DB ||
       !env.INSTANCE_NAME ||
+      !env.PILOT_ALLOWED_NUMBERS ||
       !env.WEBHOOK_SECRET ||
       !env.EVOLUTION_ALVO_TOKEN ||
       env.PILOT_ENABLED !== "1"
@@ -221,6 +232,8 @@ export default {
     }
     const event = lerEvento(payload, env.INSTANCE_NAME);
     if (!event) return responder(200, { ok: true, ignored: true });
+    if (!contatoPermitido(event.contact, env.PILOT_ALLOWED_NUMBERS))
+      return responder(200, { ok: true, ignored: true });
     const now = Math.floor(Date.now() / 1000);
 
     const pending = await env.DB.prepare(
