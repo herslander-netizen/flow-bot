@@ -14,7 +14,7 @@
     "typecheck": "tsc -b packages/contracts packages/runtime packages/store-postgres packages/channel-evolution packages/server",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --write apps/whatsapp-pilot/worker.mjs apps/whatsapp-pilot/worker.test.mjs && git diff -- apps/whatsapp-pilot/worker.mjs apps/whatsapp-pilot/worker.test.mjs && exit 1",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "schema": "npm run schema --workspace @flow-bot/contracts",
     "simular": "tsc -b packages/contracts packages/runtime && node packages/runtime/bin/simular.mjs",
