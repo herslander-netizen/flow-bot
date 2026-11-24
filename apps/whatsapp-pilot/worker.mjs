@@ -179,10 +179,10 @@ export default {
         component: "flowbot-whatsapp-pilot",
         configured: Boolean(
           env.DB &&
-            env.WEBHOOK_SECRET &&
-            env.EVOLUTION_ALVO_TOKEN &&
-            env.INSTANCE_NAME &&
-            env.PILOT_ALLOWED_NUMBERS,
+          env.WEBHOOK_SECRET &&
+          env.EVOLUTION_ALVO_TOKEN &&
+          env.INSTANCE_NAME &&
+          env.PILOT_ALLOWED_NUMBERS,
         ),
         enabled: env.PILOT_ENABLED === "1",
       });
