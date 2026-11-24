@@ -57,9 +57,7 @@
           {
             "say": "oi",
             "expect": {
-              "contains": [
-                "bem-vindo"
-              ]
+              "contains": ["bem-vindo"]
             }
           }
         ]

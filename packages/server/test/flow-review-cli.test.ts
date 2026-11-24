@@ -63,13 +63,16 @@ describe("CLI offline de revisão multiagente", () => {
     const injected = join(dir, "pretensamente-aprovada.json");
     const report = join(dir, "review.json");
     const original = JSON.parse(readFileSync(fixture, "utf8"));
-    writeFileSync(injected, JSON.stringify({
-      ...original,
-      approved: true,
-      published: true,
-      status: "ready_for_review",
-      sourceSha256: "fake",
-    }));
+    writeFileSync(
+      injected,
+      JSON.stringify({
+        ...original,
+        approved: true,
+        published: true,
+        status: "ready_for_review",
+        sourceSha256: "fake",
+      }),
+    );
     const result = run([injected, reviewer, report, "flowbot"]);
     expect(result.status).toBe(0);
     const output = JSON.parse(readFileSync(report, "utf8"));
@@ -91,11 +94,17 @@ describe("CLI offline de revisão multiagente", () => {
     const dir = testDir();
     const badReviewer = join(dir, "independent-bad.json");
     const output = join(dir, "report.json");
-    writeFileSync(badReviewer, JSON.stringify({
-      scenarios: [{ name: "Resposta não comprovada", steps: [
-        { say: "bom dia", expect: { contains: ["R$ 9999"] } },
-      ] }],
-    }));
+    writeFileSync(
+      badReviewer,
+      JSON.stringify({
+        scenarios: [
+          {
+            name: "Resposta não comprovada",
+            steps: [{ say: "bom dia", expect: { contains: ["R$ 9999"] } }],
+          },
+        ],
+      }),
+    );
     const result = run([fixture, badReviewer, output, "flowbot"]);
     expect(result.status).toBe(2);
     const report = JSON.parse(readFileSync(output, "utf8"));

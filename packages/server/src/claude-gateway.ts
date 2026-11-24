@@ -172,27 +172,26 @@ export function revisarPropostaDosAgentes(
   const tests: ResultadoDaOficina["tests"] = [];
   const independentTests: ResultadoDaOficina["independentTests"] = [];
   const reviewerScenarios =
-    reviewerScenariosRaw === undefined
-      ? null
-      : ArquivoDeCenarios.safeParse(reviewerScenariosRaw);
-  if (reviewerScenarios && (
-    !reviewerScenarios.success ||
-    reviewerScenarios.data.scenarios.length > 20 ||
-    reviewerScenarios.data.scenarios.some((scenario) =>
-      scenario.steps.length > 20 ||
-      !scenario.steps.some((step) => {
-        if (!step.expect) return false;
-        return Object.values(step.expect).some((value) =>
-          Array.isArray(value)
-            ? value.length > 0
-            : value !== undefined && value !== null,
-        );
-      }),
-    )
-  )) {
+    reviewerScenariosRaw === undefined ? null : ArquivoDeCenarios.safeParse(reviewerScenariosRaw);
+  if (
+    reviewerScenarios &&
+    (!reviewerScenarios.success ||
+      reviewerScenarios.data.scenarios.length > 20 ||
+      reviewerScenarios.data.scenarios.some(
+        (scenario) =>
+          scenario.steps.length > 20 ||
+          !scenario.steps.some((step) => {
+            if (!step.expect) return false;
+            return Object.values(step.expect).some((value) =>
+              Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null,
+            );
+          }),
+      ))
+  ) {
     problems.push({
       code: "estrutura",
-      message: "Os cenários independentes do operador estão inválidos, sem asserções ou excedem os limites.",
+      message:
+        "Os cenários independentes do operador estão inválidos, sem asserções ou excedem os limites.",
       path: "reviewerScenarios",
     });
   }
@@ -232,8 +231,7 @@ export function revisarPropostaDosAgentes(
     }
   }
   const allGreen = tests.length > 0 && tests.every((x) => x.ok);
-  const independentlyChecked =
-    independentTests.length > 0 && independentTests.every((x) => x.ok);
+  const independentlyChecked = independentTests.length > 0 && independentTests.every((x) => x.ok);
   return {
     status:
       problems.length === 0 && allGreen && independentlyChecked && gaps.length === 0

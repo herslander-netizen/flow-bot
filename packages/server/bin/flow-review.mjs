@@ -12,7 +12,8 @@ import process from "node:process";
 
 import { revisarPropostaDosAgentes } from "../dist/claude-gateway.js";
 
-const [propostaPath, revisaoPath, relatorioPath, expectedWorkspace, perfilPath] = process.argv.slice(2);
+const [propostaPath, revisaoPath, relatorioPath, expectedWorkspace, perfilPath] =
+  process.argv.slice(2);
 const MAX_BYTES = 2 * 1024 * 1024;
 
 function fail(code, reason) {
@@ -31,12 +32,16 @@ function object(value) {
 
 function main() {
   if (!propostaPath || !revisaoPath || !relatorioPath || !expectedWorkspace)
-    return fail(1, "uso: autor:revisar proposta.json revisao.json relatorio.json workspaceId [perfil.json]");
-  const paths = [propostaPath, revisaoPath, relatorioPath, ...(perfilPath ? [perfilPath] : [])].map(resolve);
+    return fail(
+      1,
+      "uso: autor:revisar proposta.json revisao.json relatorio.json workspaceId [perfil.json]",
+    );
+  const paths = [propostaPath, revisaoPath, relatorioPath, ...(perfilPath ? [perfilPath] : [])].map(
+    resolve,
+  );
   if (new Set(paths).size !== paths.length)
     return fail(1, "arquivos de origem e relatório precisam ser distintos.");
-  if (!/^[A-Za-z0-9_-]{1,120}$/.test(expectedWorkspace))
-    return fail(1, "workspace inválido.");
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(expectedWorkspace)) return fail(1, "workspace inválido.");
 
   let original;
   let regression;
@@ -66,7 +71,16 @@ function main() {
   // Hash identifica EXATAMENTE o conteúdo revisado para auditoria posterior,
   // não é assinatura, autorização nem credencial de publicação.
   const digest = createHash("sha256")
-    .update(JSON.stringify({ workspaceId: expectedWorkspace, flow, scenarios, gaps, regression, perfil: perfil ?? null }))
+    .update(
+      JSON.stringify({
+        workspaceId: expectedWorkspace,
+        flow,
+        scenarios,
+        gaps,
+        regression,
+        perfil: perfil ?? null,
+      }),
+    )
     .digest("hex");
   const output = {
     workspaceId: expectedWorkspace,
@@ -84,18 +98,19 @@ function main() {
   } catch {
     return fail(1, "não foi possível gravar o relatório sem sobrescrever arquivo.");
   }
-  console.log(JSON.stringify({
-    workspaceId: expectedWorkspace,
-    sourceSha256: digest,
-    status: reviewed.status,
-    testsFromClaude: reviewed.tests.length,
-    independentTests: reviewed.independentTests.length,
-    problems: reviewed.problems.length,
-    approved: false,
-    published: false,
-  }));
-  if (reviewed.status !== "ready_for_review")
-    process.exitCode = 2;
+  console.log(
+    JSON.stringify({
+      workspaceId: expectedWorkspace,
+      sourceSha256: digest,
+      status: reviewed.status,
+      testsFromClaude: reviewed.tests.length,
+      independentTests: reviewed.independentTests.length,
+      problems: reviewed.problems.length,
+      approved: false,
+      published: false,
+    }),
+  );
+  if (reviewed.status !== "ready_for_review") process.exitCode = 2;
 }
 
 main();

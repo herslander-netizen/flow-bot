@@ -90,7 +90,12 @@ describe("Oficina multiagente: Claude produz, validadores controlam", () => {
   });
 
   it("agentes validam o grafo e simulam sem canal nem publicação", () => {
-    const reviewed = revisarPropostaDosAgentes(resultRaw, undefined, undefined, independentScenarios);
+    const reviewed = revisarPropostaDosAgentes(
+      resultRaw,
+      undefined,
+      undefined,
+      independentScenarios,
+    );
     expect(reviewed.status).toBe("ready_for_review");
     expect(reviewed.checkedAgainstIndependentTests).toBe(true);
     expect(reviewed.independentTests).toHaveLength(1);
@@ -117,7 +122,9 @@ describe("Oficina multiagente: Claude produz, validadores controlam", () => {
     expect(empty.status).toBe("requires_revision");
     expect(empty.problems.some((p) => p.path === "reviewerScenarios")).toBe(true);
     const wrong = revisarPropostaDosAgentes(resultRaw, undefined, undefined, {
-      scenarios: [{ name: "Resposta incorreta", steps: [{ say: "oi", expect: { contains: ["R$ 999"] } }] }],
+      scenarios: [
+        { name: "Resposta incorreta", steps: [{ say: "oi", expect: { contains: ["R$ 999"] } }] },
+      ],
     });
     expect(wrong.checkedAgainstIndependentTests).toBe(false);
     expect(wrong.independentTests[0]?.ok).toBe(false);

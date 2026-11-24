@@ -77,6 +77,7 @@ O quarto argumento (`flowbot`) é o workspace esperado: uma proposta de outro es
 O relatório registra validação estrutural, cenários do Claude, cenários independentes, lacunas, problemas e `sourceSha256` (identificação de conteúdo, **não** assinatura/autorização). Em hipótese alguma o comando `autor:revisar` executa o publicador. Todos os resultados carregam `approved:false` e `published:false`.
 
 **Regras de bloqueio:**
+
 - Sem cenários independentes, a proposta não é elegível para revisão.
 - Cenários independentes precisam conter alguma verificação de resultado, não apenas uma mensagem enviada.
 - Falhas ou lacunas retornam `requires_revision`; o comando termina com código 2, deixando o relatório gravado.

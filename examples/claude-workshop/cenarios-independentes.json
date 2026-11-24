@@ -6,9 +6,7 @@
         {
           "say": "bom dia",
           "expect": {
-            "contains": [
-              "exemplo de homologação"
-            ]
+            "contains": ["exemplo de homologação"]
           }
         }
       ]
@@ -19,9 +17,7 @@
         {
           "say": "preciso de ajuda",
           "expect": {
-            "contains": [
-              "FlowBot"
-            ]
+            "contains": ["FlowBot"]
           }
         }
       ]
