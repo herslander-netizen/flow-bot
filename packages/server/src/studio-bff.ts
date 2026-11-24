@@ -110,16 +110,18 @@ export function createStudioBff(options: Options) {
         return reply(res, 405, { error: "method_not_allowed" });
       }
 
-      const pattern = /^\/studio\/v1\/flows\/([A-Za-z0-9_-]{1,80})\/(draft|history|simulate|approval)$/;
-      const action = pattern.exec(url.pathname)?.[2];
-      if (!action) return reply(res, 404, { error: "not_found" });
+      const match = /^\/studio\/v1\/flows\/([A-Za-z0-9_-]{1,80})\/([a-z]+)$/.exec(url.pathname);
+      const action = match?.[2];
+      if (!action || !["draft", "history", "simulate", "approval"].includes(action)) {
+        return reply(res, 404, { error: "not_found" });
+      }
       const operator = sessions.get(id);
       if (!operator) return reply(res, 401, { error: "session_expired" });
       const allowed =
         (method === "GET" && ["draft", "history", "approval"].includes(action)) ||
         (method === "PUT" && action === "draft") ||
         (method === "POST" && ["simulate", "approval"].includes(action));
-      if (!allowed) return reply(res, 405, { error: "method_not_allowed" });
+      if (!method || !allowed) return reply(res, 405, { error: "method_not_allowed" });
       const payload = method === "GET" ? undefined : await readBody(req, MAX_BODY);
       const result = await fetch(upstream.origin + url.pathname + url.search, {
         method,
