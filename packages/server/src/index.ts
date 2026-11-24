@@ -24,3 +24,4 @@ export {
   type StudioPermission,
   type StudioRole,
 } from "./studio-identity.js";
+export { verificarAlvoHub, type EstadoAlvoHub } from "./alvo-hub.js";
