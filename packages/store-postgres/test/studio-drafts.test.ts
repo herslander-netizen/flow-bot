@@ -53,10 +53,9 @@ describe.skipIf(!database)("Studio draft storage over PostgreSQL", () => {
     expect((await restarted.get(s, flowId))?.document.flow.name).toBe("Novo nome");
     expect((await restarted.history(s, flowId)).map((r) => r.revision)).toEqual([2, 1]);
     expect((await restarted.history(s, flowId, 2)).map((r) => r.revision)).toEqual([1]);
-    const published = await pool.query(
-      "SELECT 1 FROM flow_bot.flow_versions WHERE workspace_id = $1",
-      [s.workspaceId],
-    );
+    const published = await pool.query("SELECT 1 FROM flow_bot.flow_versions WHERE workspace_id = $1", [
+      s.workspaceId,
+    ]);
     expect(published.rowCount).toBe(0);
   });
 
@@ -66,10 +65,8 @@ describe.skipIf(!database)("Studio draft storage over PostgreSQL", () => {
     expect(await drafts.get(scope(), flowId)).toBeNull();
     expect(await drafts.get({ ...s, environment: "staging" }, flowId)).toBeNull();
     expect(await drafts.history(scope(), flowId)).toEqual([]);
-    expect(await drafts.save({ ...s, environment: "staging" }, flowId, 0, fixture())).toMatchObject({
-      ok: true,
-      revision: 1,
-    });
+    const staging = await drafts.save({ ...s, environment: "staging" }, flowId, 0, fixture());
+    expect(staging).toMatchObject({ ok: true, revision: 1 });
   });
 
   it("rejects invalid drafts and stale concurrent writes", async () => {
