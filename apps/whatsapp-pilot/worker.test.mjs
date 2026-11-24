@@ -332,9 +332,7 @@ describe("piloto Cloudflare FlowBot", () => {
 
   it("não envia duas mensagens quando o gateway responde 401", async () => {
     const db = dbFake();
-    stubGatewaySend(
-      vi.fn(async () => new Response("unauthorized", { status: 401 })),
-    );
+    stubGatewaySend(vi.fn(async () => new Response("unauthorized", { status: 401 })));
     const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));
     expect(r.body.outcome).toBe("failed");
     expect([...db.events.values()][0].outcome).toBe("failed");
