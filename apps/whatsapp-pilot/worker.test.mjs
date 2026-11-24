@@ -162,13 +162,17 @@ describe("piloto Cloudflare FlowBot", () => {
     expect(send).not.toHaveBeenCalled();
 
     const semLista = env(db, { PILOT_ALLOWED_NUMBERS: "" });
-    const health = await resposta(await worker.fetch(new Request("https://test/health"), semLista));
+    const health = await resposta(
+      await worker.fetch(new Request("https://test/health"), semLista),
+    );
     expect(health.body).toMatchObject({ ok: true, configured: false });
     expect((await worker.fetch(chamada("teste flowbot"), semLista)).status).toBe(503);
     expect(send).not.toHaveBeenCalled();
 
     const varios = env(db, { PILOT_ALLOWED_NUMBERS: "5582999991111, " + contato });
-    const f = vi.fn(async () => new Response(JSON.stringify({ status: "accepted" }), { status: 202 }));
+    const f = vi.fn(
+      async () => new Response(JSON.stringify({ status: "accepted" }), { status: 202 }),
+    );
     vi.stubGlobal("fetch", f);
     const autorizado = await resposta(await worker.fetch(chamada("teste flowbot"), varios));
     expect(autorizado.body.outcome).toBe("sent");
