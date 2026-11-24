@@ -7,6 +7,7 @@ Não faz agendamento, envia campanhas nem executa intervenções humanas. O moto
 
 - `POST /webhooks/evolution` autentica `x-webhook-secret`, valida `instance`, ignora `fromMe`, grupos e tipos desconhecidos.
 - **Restrito aos números em `PILOT_ALLOWED_NUMBERS`**: sem lista, falha fechado; números fora da lista não entram na D1 nem geram chamadas de envio.
+- **Validação obrigatória do gateway** antes de cada resposta: `GET /v1/connection` precisa confirmar `project=flowbot` e `state=open`. Token trocado com Flow, Alvo OS ou outra instância é bloqueado antes de enviar. `GET /connection-status` expõe somente o estado e um diagnóstico sem credenciais.
 - Somente responde à frase `teste flowbot`, `flowbot teste`, `oi flowbot` ou `olá flowbot`. A saudação tenta primeiro **botões experimentais** na rota `/v1/messages/buttons`; aceita o clique por ID `1` ou `2` durante 24h.
 - Em rejeições definitivas de botões (HTTP 400/404/405/415/422), envia menu numérico usando **nova chave idempotente por formato**. Em `pending`, `unknown`, timeout, 429 ou 5xx **não reenvia**: pode já ter enviado.
 - Se o gateway aceitar mas o WhatsApp não renderizar, o cliente pode enviar **`menu texto`** para receber a versão textual. Não há confirmação técnica de renderização pelos retornos `accepted`.
