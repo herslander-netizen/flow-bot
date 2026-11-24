@@ -22,14 +22,14 @@ limiting, TLS ou configuração de implantação. Não expor diretamente à inte
 
 Todas começam com /studio/v1/flows/{flowId}.
 
-| Método e sufixo | Permissão | Entrada |
-| --- | --- | --- |
-| GET /draft | read | revision opcional na query |
-| PUT /draft | write | expectedRevision e document |
-| GET /history | read | before opcional na query |
-| POST /simulate | simulate | revision, scenarios e baseRevision opcional |
-| GET /approval | read | nenhuma |
-| POST /approval | approve | revision, confirmation e scenarios |
+| Método e sufixo | Permissão | Entrada                                     |
+| --------------- | --------- | ------------------------------------------- |
+| GET /draft      | read      | revision opcional na query                  |
+| PUT /draft      | write     | expectedRevision e document                 |
+| GET /history    | read      | before opcional na query                    |
+| POST /simulate  | simulate  | revision, scenarios e baseRevision opcional |
+| GET /approval   | read      | nenhuma                                     |
+| POST /approval  | approve   | revision, confirmation e scenarios          |
 
 A API de simulação desta etapa usa fluxos sem perfil de realidade externo.
 Não aceita perfil ou escopo arbitrário do cliente. A integração de perfis
