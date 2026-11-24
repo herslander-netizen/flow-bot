@@ -241,6 +241,53 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     ]);
   });
 
+  it("uma reserva WhatsApp vencida após queda não é reenviada nem libera a fila", async () => {
+    const c = cenario();
+    await c.bot.publicar(c.ws, menu());
+    await c.dizer("oi");
+    // Estado durável de queda após reservar a primeira saída e antes de gravar o resultado.
+    await pool.query(
+      `UPDATE flow_bot.outbound SET status = 'sending', attempts = 1, locked_until = $2
+        WHERE id = (SELECT min(id) FROM flow_bot.outbound WHERE workspace_id = $1)`,
+      [c.ws, new Date("2026-11-02T12:01:00Z")],
+    );
+    const reiniciado = new FlowBot({ pool, agora: () => new Date("2026-11-02T13:00:00Z") });
+    const enviados: string[] = [];
+    const adaptador: AdaptadorDeSaida = async ({ chave }) => {
+      enviados.push(chave);
+      return { ok: true };
+    };
+    expect(await reiniciado.entregarPendentes(adaptador, { workspaceId: c.ws })).toBe(0);
+    expect(enviados).toEqual([]);
+    expect(await reiniciado.enviosIncertos(c.ws)).toEqual([
+      expect.objectContaining({
+        idempotency_key: "whatsapp:1#0",
+        last_error: "reserva_whatsapp_vencida",
+      }),
+    ]);
+  });
+
+  it.each([false, true])("resultado WhatsApp tardio (%s) fica retido", async (ok) => {
+    const c = cenario();
+    await c.bot.publicar(c.ws, menu());
+    await c.dizer("oi");
+    const enviados: string[] = [];
+    const tardio: AdaptadorDeSaida = async ({ chave }) => {
+      enviados.push(chave);
+      c.avancar(3600);
+      return { ok, id: "provedor-fixture" };
+    };
+    expect(await c.bot.entregarPendentes(tardio, { workspaceId: c.ws })).toBe(1);
+    expect(await c.bot.entregarPendentes(tardio, { workspaceId: c.ws })).toBe(0);
+    expect(enviados).toEqual(["whatsapp:1#0"]);
+    expect(await c.bot.enviosIncertos(c.ws)).toEqual([
+      expect.objectContaining({
+        idempotency_key: "whatsapp:1#0",
+        last_error: "resultado_whatsapp_apos_reserva",
+      }),
+    ]);
+  });
+
   it("unknown de uma empresa não interrompe a fila de outra", async () => {
     const a = cenario();
     const b = cenario();
