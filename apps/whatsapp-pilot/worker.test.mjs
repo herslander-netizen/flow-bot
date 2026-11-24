@@ -86,6 +86,7 @@ function env(db = dbFake(), extras = {}) {
     PILOT_ENABLED: "1",
     WEBHOOK_SECRET: secret,
     EVOLUTION_ALVO_TOKEN: token,
+    PILOT_ALLOWED_NUMBERS: contato,
     ...extras,
   };
 }
@@ -148,6 +149,30 @@ describe("piloto Cloudflare FlowBot", () => {
     expect(wrong.body).toMatchObject({ ignored: true });
     expect(db.events.size).toBe(0);
     expect(f).not.toHaveBeenCalled();
+  });
+
+  it("falha fechado sem allowlist e ignora números fora dos testes autorizados", async () => {
+    const db = dbFake();
+    const send = vi.fn();
+    vi.stubGlobal("fetch", send);
+    const fora = env(db, { PILOT_ALLOWED_NUMBERS: "5582999991111" });
+    const recusado = await resposta(await worker.fetch(chamada("teste flowbot"), fora));
+    expect(recusado).toMatchObject({ status: 200, body: { ignored: true } });
+    expect(db.events.size).toBe(0);
+    expect(send).not.toHaveBeenCalled();
+
+    const semLista = env(db, { PILOT_ALLOWED_NUMBERS: "" });
+    const health = await resposta(await worker.fetch(new Request("https://test/health"), semLista));
+    expect(health.body).toMatchObject({ ok: true, configured: false });
+    expect((await worker.fetch(chamada("teste flowbot"), semLista)).status).toBe(503);
+    expect(send).not.toHaveBeenCalled();
+
+    const varios = env(db, { PILOT_ALLOWED_NUMBERS: "5582999991111, " + contato });
+    const f = vi.fn(async () => new Response(JSON.stringify({ status: "accepted" }), { status: 202 }));
+    vi.stubGlobal("fetch", f);
+    const autorizado = await resposta(await worker.fetch(chamada("teste flowbot"), varios));
+    expect(autorizado.body.outcome).toBe("sent");
+    expect(f).toHaveBeenCalledTimes(1);
   });
 
   it("ignora ecos fromMe, grupos e frases fora do teste", async () => {
