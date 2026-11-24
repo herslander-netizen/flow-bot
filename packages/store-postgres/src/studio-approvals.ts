@@ -48,7 +48,9 @@ export class StudioApprovals {
     assertScope(scope, flowId);
     if (scope.canApprove !== true || confirmation !== true)
       return { ok: false as const, error: "approval_not_authorized" };
-    if (!Number.isSafeInteger(revision) || revision < 1) throw new Error("studio_revisao_invalida");
+    if (!Number.isSafeInteger(revision) || revision < 1) {
+      throw new Error("studio_revisao_invalida");
+    }
     const parsed = ArquivoDeCenarios.safeParse(scenarios);
     if (
       !parsed.success ||
@@ -58,14 +60,15 @@ export class StudioApprovals {
           s.steps.length > 20 ||
           !s.steps.some((step) => {
             const e = step.expect;
+            if (!e) return false;
+            const containsText = e.contains?.some((value) => value.trim().length > 0);
             return (
-              e &&
-              (e.replies !== undefined ||
-                (e.contains?.some((value) => value.trim().length > 0) ?? false) ||
-                e.status !== undefined ||
-                e.cursor !== undefined ||
-                e.handoff !== undefined ||
-                Object.keys(e.variables ?? {}).length > 0)
+              e.replies !== undefined ||
+              containsText === true ||
+              e.status !== undefined ||
+              e.cursor !== undefined ||
+              e.handoff !== undefined ||
+              Object.keys(e.variables ?? {}).length > 0
             );
           }),
       )
