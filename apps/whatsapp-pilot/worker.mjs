@@ -5,6 +5,7 @@
  * Os envios são at-most-once por evento: incerteza bloqueia a conversa.
  */
 const URL_GATEWAY = "https://evolution-alvo.regalbrink4.chatgpt.site";
+const PROJETO_GATEWAY = "flowbot";
 const TE = new TextEncoder();
 const LIMITE_CORPO = 32768;
 const DIAS_RETENCAO = 30;
@@ -70,6 +71,13 @@ function textoNormalizado(value) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// O piloto não é público: sem lista explícita de telefones de teste, não responde.
+function contatoPermitido(contact, lista) {
+  if (typeof lista !== "string" || !lista.trim()) return false;
+  return lista.split(/[,;\s]+/).some((item) => item === contact);
+}
+
 function lerEvento(corpo, instance) {
   if (!corpo || typeof corpo !== "object" || Array.isArray(corpo)) return null;
   if (String(corpo.instance ?? "") !== instance) return null;
@@ -91,13 +99,18 @@ function lerEvento(corpo, instance) {
   if (!/^\d{10,15}$/.test(contact)) return null;
   const message = data.message;
   if (!message || typeof message !== "object") return null;
-  const input = message.conversation ?? message.extendedTextMessage?.text;
+  const input =
+    message.conversation ??
+    message.extendedTextMessage?.text ??
+    message.buttonsResponseMessage?.selectedButtonId ??
+    message.buttonsResponseMessage?.selectedDisplayText ??
+    message.listResponseMessage?.singleSelectReply?.selectedRowId;
   if (typeof input !== "string" || input.length > 1000) return null;
   return { id, contact, input: textoNormalizado(input) };
 }
 
 function respostaDoPiloto(input, sessionActive) {
-  if (GATILHOS.has(input)) {
+  if (GATILHOS.has(input) || input === "menu" || input === "menu texto") {
     return "👋 *FlowBot — teste de atendimento*\n\nConexão WhatsApp funcionando! ✅\n\nDigite:\n*1* — Conhecer o FlowBot\n*2* — Atendimento humano (simulação)\n\n_Este é um ambiente de homologação._";
   }
   if (!sessionActive) return null;
@@ -108,18 +121,34 @@ function respostaDoPiloto(input, sessionActive) {
   return null;
 }
 
-async function enviarGateway(env, numero, text, key) {
+const BOTOES_TESTE = [
+  { id: "1", displayText: "Conhecer FlowBot" },
+  { id: "2", displayText: "Falar com atendente" },
+];
+
+async function enviarGateway(env, numero, mensagem, key) {
+  const formato = mensagem.type === "buttons" ? "buttons" : "text";
+  const corpo =
+    formato === "buttons"
+      ? {
+          number: numero,
+          title: "FlowBot — atendimento de teste",
+          description: "Bem-vindo! Como posso ajudar? (ambiente de homologação)",
+          footer: "Se os botões não aparecerem, envie: menu texto",
+          buttons: BOTOES_TESTE,
+        }
+      : { number: numero, text: mensagem.text };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const r = await fetch(URL_GATEWAY + "/v1/messages/text", {
+    const r = await fetch(URL_GATEWAY + "/v1/messages/" + formato, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN,
         "Idempotency-Key": key,
       },
-      body: JSON.stringify({ number: numero, text }),
+      body: JSON.stringify(corpo),
       signal: controller.signal,
       redirect: "error",
     });
@@ -128,12 +157,42 @@ async function enviarGateway(env, numero, text, key) {
       return { outcome: "sent", id: typeof obj.key?.id === "string" ? obj.key.id : null };
     if (obj?.status === "unknown" || obj?.status === "pending")
       return { outcome: "unknown", id: null };
-    if ([400, 401, 403, 404, 422].includes(r.status)) return { outcome: "failed", id: null };
+    // Apenas rejeição definitiva de um envio interativo permite o menu alternativo.
+    // Uma aceitação pode ter chegado ao WhatsApp: nunca enviar fallback nesse caso.
+    if (formato === "buttons" && [400, 404, 405, 415, 422].includes(r.status))
+      return { outcome: "unsupported", id: null };
+    if ([400, 401, 403, 404, 405, 413, 415, 422].includes(r.status))
+      return { outcome: "failed", id: null };
     return { outcome: "unknown", id: null };
   } catch {
     return { outcome: "unknown", id: null };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function conexaoDoProjeto(env) {
+  if (!env.EVOLUTION_ALVO_TOKEN) return { ok: false, reason: "no_token" };
+  try {
+    const upstream = await fetch(URL_GATEWAY + "/v1/connection", {
+      headers: {
+        authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN,
+        accept: "application/json",
+      },
+      redirect: "error",
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!upstream.ok)
+      return { ok: false, reason: "gateway_rejected", upstreamStatus: upstream.status };
+    const value = await upstream.json().catch(() => null);
+    if (value?.project !== PROJETO_GATEWAY)
+      return { ok: false, reason: "project_mismatch", upstreamStatus: upstream.status };
+    const state = ["open", "close", "connecting", "unconfigured"].includes(value?.state)
+      ? value.state
+      : "unknown";
+    return { ok: true, state, upstreamStatus: upstream.status };
+  } catch {
+    return { ok: false, reason: "upstream_unavailable" };
   }
 }
 
@@ -145,40 +204,25 @@ export default {
         ok: true,
         component: "flowbot-whatsapp-pilot",
         configured: Boolean(
-          env.DB && env.WEBHOOK_SECRET && env.EVOLUTION_ALVO_TOKEN && env.INSTANCE_NAME,
+          env.DB &&
+          env.WEBHOOK_SECRET &&
+          env.EVOLUTION_ALVO_TOKEN &&
+          env.INSTANCE_NAME &&
+          env.PILOT_ALLOWED_NUMBERS,
         ),
         enabled: env.PILOT_ENABLED === "1",
       });
     }
     if (request.method === "GET" && path === "/connection-status") {
-      if (!env.EVOLUTION_ALVO_TOKEN) return responder(503, { ok: false, reason: "no_token" });
-      try {
-        const upstream = await fetch(URL_GATEWAY + "/v1/connection", {
-          headers: {
-            authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN,
-            accept: "application/json",
-          },
-          redirect: "error",
-          signal: AbortSignal.timeout(6000),
-        });
-        const value = await upstream.json().catch(() => null);
-        const state = ["open", "close", "connecting", "unconfigured"].includes(value?.state)
-          ? value.state
-          : "unknown";
-        return responder(upstream.ok ? 200 : 502, {
-          ok: upstream.ok,
-          state: upstream.ok ? state : "unknown",
-          upstreamStatus: upstream.status,
-        });
-      } catch {
-        return responder(503, { ok: false, reason: "upstream_unavailable" });
-      }
+      const connection = await conexaoDoProjeto(env);
+      return responder(connection.ok ? 200 : 502, connection);
     }
     if (path !== "/webhooks/evolution") return responder(404, { error: "not_found" });
     if (request.method !== "POST") return responder(405, { error: "method_not_allowed" });
     if (
       !env.DB ||
       !env.INSTANCE_NAME ||
+      !env.PILOT_ALLOWED_NUMBERS ||
       !env.WEBHOOK_SECRET ||
       !env.EVOLUTION_ALVO_TOKEN ||
       env.PILOT_ENABLED !== "1"
@@ -195,6 +239,8 @@ export default {
     }
     const event = lerEvento(payload, env.INSTANCE_NAME);
     if (!event) return responder(200, { ok: true, ignored: true });
+    if (!contatoPermitido(event.contact, env.PILOT_ALLOWED_NUMBERS))
+      return responder(200, { ok: true, ignored: true });
     const now = Math.floor(Date.now() / 1000);
 
     const pending = await env.DB.prepare(
@@ -212,6 +258,11 @@ export default {
     const sessionActive = Number(previous?.expires_at || 0) > now;
     const responseText = respostaDoPiloto(event.input, sessionActive);
     if (!responseText) return responder(200, { ok: true, ignored: true });
+
+    // Não enviar com token de outro projeto ou sessão do FlowBot desconectada.
+    const connection = await conexaoDoProjeto(env);
+    if (!connection.ok || connection.state !== "open")
+      return responder(503, { error: "gateway_not_ready" });
 
     // Sem texto pessoal no banco; deduplicação é feita pelo ID da Evolution.
     const inserted = await env.DB.prepare(
@@ -236,7 +287,23 @@ export default {
       return responder(200, { ok: true, rate_limited: true });
     }
     const idem = "flowbot:" + (await hash(env.INSTANCE_NAME + ":" + event.id));
-    const result = await enviarGateway(env, event.contact, responseText, idem);
+    const usarBotoes = GATILHOS.has(event.input) && env.PILOT_INTERACTIVE_BUTTONS !== "0";
+    let result = usarBotoes
+      ? await enviarGateway(env, event.contact, { type: "buttons" }, idem + ":buttons")
+      : await enviarGateway(
+          env,
+          event.contact,
+          { type: "text", text: responseText },
+          idem + ":text",
+        );
+    if (result.outcome === "unsupported") {
+      result = await enviarGateway(
+        env,
+        event.contact,
+        { type: "text", text: responseText },
+        idem + ":text",
+      );
+    }
     await env.DB.prepare(
       "UPDATE pilot_events SET outcome = ?, provider_message_id = ? WHERE instance = ? AND event_id = ?",
     )
