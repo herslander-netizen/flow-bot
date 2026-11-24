@@ -1,0 +1,26 @@
+name: Temp formatting offline authoring review
+on:
+  push:
+    branches: [feat/flowbot-claude-attendance-gateway-20261123]
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Normalize only new authoring files
+        run: |
+          npx prettier --write docs/CLAUDE_GATEWAY.md examples/claude-workshop/cenarios-independentes.json examples/claude-workshop/proposta-exemplo.json packages/server/bin/flow-review.mjs packages/server/src/claude-gateway.ts packages/server/test/claude-gateway.test.ts packages/server/test/flow-review-cli.test.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/CLAUDE_GATEWAY.md examples/claude-workshop/cenarios-independentes.json examples/claude-workshop/proposta-exemplo.json packages/server/bin/flow-review.mjs packages/server/src/claude-gateway.ts packages/server/test/claude-gateway.test.ts packages/server/test/flow-review-cli.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style: formatar revisão offline da oficina Claude"
+            git push origin HEAD:refs/heads/feat/flowbot-claude-attendance-gateway-20261123
+          fi
