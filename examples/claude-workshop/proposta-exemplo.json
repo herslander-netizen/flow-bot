@@ -1,0 +1,70 @@
+{
+  "workspaceId": "flowbot",
+  "requestKey": "modelo-de-exemplo-sem-api-0001",
+  "status": "requires_revision",
+  "flow": {
+    "schemaVersion": "flow-bot/v0",
+    "flow": {
+      "id": "modelo-exemplo",
+      "name": "Boas-vindas de teste",
+      "timezone": "America/Sao_Paulo",
+      "status": "draft",
+      "entryNodeId": "inicio"
+    },
+    "limits": {
+      "maxStepsPerEvent": 20
+    },
+    "variables": [],
+    "nodes": [
+      {
+        "id": "inicio",
+        "type": "trigger.message_received",
+        "config": {}
+      },
+      {
+        "id": "resposta",
+        "type": "message.text",
+        "config": {
+          "text": "Olá, bem-vindo! Este é um exemplo de homologação do FlowBot."
+        }
+      },
+      {
+        "id": "fim",
+        "type": "action.end",
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "inicio",
+        "to": "resposta",
+        "port": "next"
+      },
+      {
+        "id": "e2",
+        "from": "resposta",
+        "to": "fim",
+        "port": "next"
+      }
+    ]
+  },
+  "scenarios": {
+    "scenarios": [
+      {
+        "name": "Teste criado pelo autor",
+        "steps": [
+          {
+            "say": "oi",
+            "expect": {
+              "contains": ["bem-vindo"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "gaps": [],
+  "approved": false,
+  "published": false
+}

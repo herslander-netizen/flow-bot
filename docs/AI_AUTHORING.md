@@ -35,8 +35,9 @@ A IA prepara um pacote contendo:
 4. **Validar semântica:** grafo alcançável, saídas, loops, variáveis, timeout, colisões de regras e segurança.
 5. **Criar testes:** pares entrada esperada, fluxo/nó esperado, resposta esperada e fallback.
 6. **Simular:** executar os testes sem conectar um canal e sem enviar mensagens reais.
-7. **Revisão humana:** corrigir mensagens, dados, horários e caminhos duvidosos.
-8. **Publicar:** congelar a versão e registrar quem aprovou.
+7. **Revisão independente:** simular também cenários definidos por operador, separados dos testes gerados pela IA. Falta de cenários independentes mantém o fluxo em `requires_revision`.
+8. **Revisão humana:** corrigir mensagens, dados, horários e caminhos duvidosos; validar o hash da proposta e registrar quem aprovou.
+9. **Publicar:** em operação separada, congelar a versão e registrar quem aprovou; nenhuma IA pode publicar.
 
 ## Proibição
 
@@ -49,3 +50,7 @@ Quando o negócio mudar preço, serviço, horário ou política, a IA pode gerar
 ## Medição do custo
 
 As chamadas de IA ocorrem apenas na etapa de configuração/revisão e são opcionais. O runtime mede custos do canal, infraestrutura, filas e storage separadamente. Não prometer custo total zero: provedores WhatsApp, hospedagem, banco e serviços externos podem ter cobrança.
+
+## Execução sem modelos pagos
+
+A CLI `npm run autor:revisar -- proposta.json cenarios-independentes.json relatorio.json workspaceId [perfil.json]` valida uma proposta, compila e simula testes independentes **sem Claude, banco, Evolution ou envio de WhatsApp**. Há arquivos fictícios em `examples/claude-workshop/`. O resultado `ready_for_review` significa somente que os testes passaram; não autoriza publicação nem dispensa análise humana.

@@ -1,0 +1,26 @@
+{
+  "scenarios": [
+    {
+      "name": "Revisão independente de saudação",
+      "steps": [
+        {
+          "say": "bom dia",
+          "expect": {
+            "contains": ["exemplo de homologação"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Outra saudação",
+      "steps": [
+        {
+          "say": "preciso de ajuda",
+          "expect": {
+            "contains": ["FlowBot"]
+          }
+        }
+      ]
+    }
+  ]
+}
