@@ -3,18 +3,20 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import type { StudioApprovals, StudioDrafts, StudioScope } from "@flow-bot/store-postgres";
 
+import type { IdentityResolver, StudioPermission } from "./studio-identity.js";
 import { avaliarRascunhoStudio } from "./studio-offline.js";
 
-type Permission = "read" | "write" | "simulate" | "approve";
 export type StudioPrincipal = StudioScope & {
   token: string;
-  permissions: readonly Permission[];
+  permissions: readonly StudioPermission[];
 };
 type Dependencies = {
   drafts: Pick<StudioDrafts, "save" | "get" | "history">;
   approvals: Pick<StudioApprovals, "approve" | "current">;
-  principals: readonly StudioPrincipal[];
-};
+} & (
+  | { principals: readonly StudioPrincipal[]; resolveIdentity?: never }
+  | { resolveIdentity: IdentityResolver; principals?: never }
+);
 
 const MAX_BODY = 1024 * 1024;
 
@@ -75,9 +77,10 @@ function fields(input: Record<string, unknown>, allowed: readonly string[]) {
 
 /** Separate authoring server. Bind only to a private interface behind a trusted BFF. */
 export function createStudioApi(deps: Dependencies) {
-  if (!deps.principals.length) throw new Error("studio_auth_required");
+  if (deps.resolveIdentity && deps.principals) throw new Error("studio_auth_mode_conflict");
+  if (!deps.resolveIdentity && !deps.principals?.length) throw new Error("studio_auth_required");
   const tokens = new Set<string>();
-  const principals = deps.principals.map((p) => {
+  const principals = (deps.principals ?? []).map((p) => {
     if (
       p.token.length < 32 ||
       tokens.has(p.token) ||
@@ -102,8 +105,11 @@ export function createStudioApi(deps: Dependencies) {
       if (!header?.startsWith("Bearer ") || header.length > 4096) {
         return reply(res, 401, { error: "unauthorized" });
       }
-      const supplied = digest(header.slice(7));
-      const principal = principals.find((p) => timingSafeEqual(p.digest, supplied));
+      const token = header.slice(7);
+      const selected = req.headers["x-studio-workspace"];
+      const principal = deps.resolveIdentity
+        ? await deps.resolveIdentity(token, typeof selected === "string" ? selected : "")
+        : principals.find((p) => timingSafeEqual(p.digest, digest(token)));
       if (!principal) return reply(res, 401, { error: "unauthorized" });
       const { scope, permissions } = principal;
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -115,7 +121,7 @@ export function createStudioApi(deps: Dependencies) {
       }
 
       const method = req.method;
-      let permission: Permission;
+      let permission: StudioPermission;
       if (method === "GET" && ["draft", "history", "approval"].includes(action)) {
         permission = "read";
       } else if (method === "PUT" && action === "draft") {
