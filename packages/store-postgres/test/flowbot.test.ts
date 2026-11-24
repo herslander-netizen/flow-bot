@@ -267,6 +267,27 @@ describe.skipIf(!URL_DO_BANCO)("FlowBot sobre Postgres", () => {
     ]);
   });
 
+  it.each([false, true])("resultado WhatsApp tardio (%s) fica retido", async (ok) => {
+    const c = cenario();
+    await c.bot.publicar(c.ws, menu());
+    await c.dizer("oi");
+    const enviados: string[] = [];
+    const tardio: AdaptadorDeSaida = async ({ chave }) => {
+      enviados.push(chave);
+      c.avancar(3600);
+      return { ok, id: "provedor-fixture" };
+    };
+    expect(await c.bot.entregarPendentes(tardio, { workspaceId: c.ws })).toBe(1);
+    expect(await c.bot.entregarPendentes(tardio, { workspaceId: c.ws })).toBe(0);
+    expect(enviados).toEqual(["whatsapp:1#0"]);
+    expect(await c.bot.enviosIncertos(c.ws)).toEqual([
+      expect.objectContaining({
+        idempotency_key: "whatsapp:1#0",
+        last_error: "resultado_whatsapp_apos_reserva",
+      }),
+    ]);
+  });
+
   it("unknown de uma empresa não interrompe a fila de outra", async () => {
     const a = cenario();
     const b = cenario();

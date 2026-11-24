@@ -413,6 +413,11 @@ export class FlowBot {
             } catch {
               envio = { ok: false, incerto: true, erro: "adaptador_whatsapp_incerto" };
             }
+            const agora = this.agora();
+            // Mesmo uma resposta conclusiva do adaptador, se tardia, não reativa a fila.
+            if (agora >= item.locked_until) {
+              envio = { ok: false, incerto: true, erro: "resultado_whatsapp_apos_reserva" };
+            }
             const incerto = !envio.ok && envio.incerto === true;
             const falha = envio.erro?.slice(0, 500) ?? "falha_sem_detalhe";
             const id = envio.id;
@@ -423,7 +428,6 @@ export class FlowBot {
                 : item.attempts >= this.maxTentativas
                   ? "failed"
                   : "pending";
-            const agora = this.agora();
             await c.query(
               `UPDATE flow_bot.outbound
                   SET status = $6, delivery_uncertain = $7, locked_until = NULL,
