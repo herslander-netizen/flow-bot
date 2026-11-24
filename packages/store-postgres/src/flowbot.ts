@@ -324,12 +324,16 @@ export class FlowBot {
         idempotency_key: string;
         action: Acao;
         attempts: number;
+        locked_until: Date;
       }>(
         `UPDATE flow_bot.outbound SET status = 'sending', locked_until = $2, attempts = attempts + 1
           WHERE id IN (
             SELECT o.id FROM flow_bot.outbound o
              WHERE o.next_attempt_at <= $1
-               AND (o.status = 'pending' OR (o.status = 'sending' AND o.locked_until < $1))
+               AND (o.status = 'pending' OR (
+                 o.status = 'sending' AND o.locked_until < $1
+                 AND o.action->>'type' NOT IN ('send_text', 'send_quick_replies')
+               ))
                AND NOT o.delivery_uncertain
                AND ($4::text IS NULL OR o.workspace_id = $4)
                AND NOT EXISTS (
@@ -341,7 +345,7 @@ export class FlowBot {
              ORDER BY o.next_attempt_at, o.id
              LIMIT $3
              FOR UPDATE SKIP LOCKED)
-          RETURNING id, workspace_id, conversation_key, idempotency_key, action, attempts`,
+          RETURNING id, workspace_id, conversation_key, idempotency_key, action, attempts, locked_until`,
         [agora, new Date(agora.getTime() + this.reservaMs), limite, workspaceId],
       );
       return r.rows;
@@ -370,10 +374,77 @@ export class FlowBot {
               WHERE workspace_id = $1 AND conversation_key = $2 FOR UPDATE`,
             [item.workspace_id, item.conversation_key],
           );
+          const whatsapp =
+            item.action.type === "send_text" || item.action.type === "send_quick_replies";
+          if (whatsapp) {
+            // Não despachar quando a reserva venceu enquanto havia espera pelo lock da conversa.
+            const claim = await c.query(
+              `SELECT 1 FROM flow_bot.outbound
+                WHERE id = $1 AND workspace_id = $2 AND conversation_key = $3
+                  AND status = 'sending' AND attempts = $4 AND locked_until = $5
+                  AND locked_until > $6 AND NOT delivery_uncertain FOR UPDATE`,
+              [
+                item.id,
+                item.workspace_id,
+                item.conversation_key,
+                item.attempts,
+                item.locked_until,
+                this.agora(),
+              ],
+            );
+            if (claim.rowCount !== 1) return { cancelada: true as const };
+          }
           if (!conversa.rows[0] || conversa.rows[0].session.status === "handed_off") {
             await c.query(
               "UPDATE flow_bot.outbound SET status = 'cancelled', locked_until = NULL WHERE id = $1 AND status = 'sending'",
               [item.id],
+            );
+            return { cancelada: true as const };
+          }
+          if (whatsapp) {
+            let envio: Awaited<ReturnType<AdaptadorDeSaida>>;
+            try {
+              envio = await adaptador({
+                workspaceId: item.workspace_id,
+                conversationKey: item.conversation_key,
+                chave: item.idempotency_key,
+                acao: item.action,
+              });
+            } catch {
+              envio = { ok: false, incerto: true, erro: "adaptador_whatsapp_incerto" };
+            }
+            const incerto = !envio.ok && envio.incerto === true;
+            const falha = envio.erro?.slice(0, 500) ?? "falha_sem_detalhe";
+            const id = envio.id;
+            const status = envio.ok
+              ? "sent"
+              : incerto
+                ? "sending"
+                : item.attempts >= this.maxTentativas
+                  ? "failed"
+                  : "pending";
+            const agora = this.agora();
+            await c.query(
+              `UPDATE flow_bot.outbound
+                  SET status = $6, delivery_uncertain = $7, locked_until = NULL,
+                      last_error = $8, provider_message_id = $9,
+                      sent_at = CASE WHEN $6 = 'sent' THEN $10 ELSE sent_at END,
+                      next_attempt_at = CASE WHEN $6 IN ('pending', 'failed') THEN $11 ELSE next_attempt_at END
+                WHERE id = $1 AND workspace_id = $2 AND conversation_key = $3
+                  AND status = 'sending' AND attempts = $4 AND locked_until = $5`,
+              [
+                item.id,
+                item.workspace_id,
+                item.conversation_key,
+                item.attempts,
+                item.locked_until,
+                status,
+                incerto,
+                envio.ok ? null : falha,
+                envio.ok && typeof id === "string" && id.length > 0 && id.length <= 200 ? id : null,
+                agora,
+                new Date(agora.getTime() + esperaDaTentativa(item.attempts)),
+              ],
             );
             return { cancelada: true as const };
           }
@@ -407,21 +478,6 @@ export class FlowBot {
         } catch (erro) {
           resultado = { ok: false, erro: erro instanceof Error ? erro.message : String(erro) };
         }
-      }
-      // Evitar duplicidade: 'unknown' nunca vira falha comum nem libera a próxima
-      // saída. A mesma chave só pode ser reconciliada mediante evidência externa.
-      if (
-        !resultado.ok &&
-        resultado.incerto === true &&
-        (item.action.type === "send_text" || item.action.type === "send_quick_replies")
-      ) {
-        await this.pool.query(
-          `UPDATE flow_bot.outbound
-              SET delivery_uncertain = true, locked_until = NULL, last_error = $2
-            WHERE id = $1 AND status = 'sending'`,
-          [item.id, resultado.erro?.slice(0, 500) ?? "resultado_incerto"],
-        );
-        continue;
       }
       if (item.action.type === "webhook") {
         // "retries" conta tentativas adicionais. maxTentativas é o teto operacional global.
@@ -524,11 +580,15 @@ export class FlowBot {
       idempotency_key: string;
       last_error: string | null;
     }>(
-      `SELECT id, conversation_key, idempotency_key, last_error
+      `SELECT id, conversation_key, idempotency_key,
+              CASE WHEN delivery_uncertain THEN last_error ELSE 'reserva_whatsapp_vencida' END AS last_error
          FROM flow_bot.outbound
-        WHERE workspace_id = $1 AND delivery_uncertain = true
+        WHERE workspace_id = $1 AND (delivery_uncertain OR (
+          status = 'sending' AND locked_until <= $2
+          AND action->>'type' IN ('send_text', 'send_quick_replies')
+        ))
         ORDER BY id LIMIT 100`,
-      [workspaceId],
+      [workspaceId, this.agora()],
     );
     return r.rows;
   }
