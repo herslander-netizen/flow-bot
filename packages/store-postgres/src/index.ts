@@ -10,3 +10,4 @@ export {
 } from "./flowbot.js";
 export { anonimizar } from "./anonimizar.js";
 export { contadoresDoResultado, frasesDoResultado, type TipoDeFrase } from "./aprendizado.js";
+export { StudioDrafts, type StudioScope } from "./studio-drafts.js";
