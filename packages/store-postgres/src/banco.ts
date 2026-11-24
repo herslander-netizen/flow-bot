@@ -27,9 +27,14 @@ const PASTA = new URL("../migrations/", import.meta.url);
 
 /** Aplica as migrações que faltam, em ordem, cada uma na sua transação. Devolve as aplicadas agora. */
 export async function migrar(pool: Pool): Promise<string[]> {
-  await pool.query(
-    "CREATE SCHEMA IF NOT EXISTS flow_bot; CREATE TABLE IF NOT EXISTS flow_bot.migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
-  );
+  // O bootstrap precisa de trava antes do CREATE SCHEMA: dois runners simultâneos
+  // podem colidir mesmo com IF NOT EXISTS no catálogo do PostgreSQL.
+  await emTransacao(pool, async (c) => {
+    await c.query("SELECT pg_advisory_xact_lock(hashtext('flow_bot.migrations.bootstrap'))");
+    await c.query(
+      "CREATE SCHEMA IF NOT EXISTS flow_bot; CREATE TABLE IF NOT EXISTS flow_bot.migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
+    );
+  });
   const aplicadas = new Set(
     (await pool.query<{ name: string }>("SELECT name FROM flow_bot.migrations")).rows.map(
       (r) => r.name,
