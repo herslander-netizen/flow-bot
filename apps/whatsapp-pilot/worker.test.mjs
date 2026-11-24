@@ -117,6 +117,17 @@ async function resposta(r) {
   return { status: r.status, body: await r.json() };
 }
 
+function stubGatewaySend(handler, connection = { project: "flowbot", state: "open" }) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url, options) => {
+      if (String(url).endsWith("/v1/connection"))
+        return new Response(JSON.stringify(connection), { status: 200 });
+      return handler(url, options);
+    }),
+  );
+}
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe("piloto Cloudflare FlowBot", () => {
@@ -133,7 +144,7 @@ describe("piloto Cloudflare FlowBot", () => {
   it("rejeita webhook sem segredo, com segredo incorreto ou com instância diferente", async () => {
     const db = dbFake();
     const f = vi.fn();
-    vi.stubGlobal("fetch", f);
+    stubGatewaySend(f);
     const e = env(db);
     expect(
       (
@@ -154,7 +165,7 @@ describe("piloto Cloudflare FlowBot", () => {
   it("falha fechado sem allowlist e ignora números fora dos testes autorizados", async () => {
     const db = dbFake();
     const send = vi.fn();
-    vi.stubGlobal("fetch", send);
+    stubGatewaySend(send);
     const fora = env(db, { PILOT_ALLOWED_NUMBERS: "5582999991111" });
     const recusado = await resposta(await worker.fetch(chamada("teste flowbot"), fora));
     expect(recusado).toMatchObject({ status: 200, body: { ignored: true } });
@@ -171,16 +182,49 @@ describe("piloto Cloudflare FlowBot", () => {
     const f = vi.fn(
       async () => new Response(JSON.stringify({ status: "accepted" }), { status: 202 }),
     );
-    vi.stubGlobal("fetch", f);
+    stubGatewaySend(f);
     const autorizado = await resposta(await worker.fetch(chamada("teste flowbot"), varios));
     expect(autorizado.body.outcome).toBe("sent");
     expect(f).toHaveBeenCalledTimes(1);
   });
 
+  it("bloqueia token de outro projeto antes de enviar qualquer mensagem", async () => {
+    const db = dbFake();
+    const envio = vi.fn();
+    stubGatewaySend(envio, { project: "flow", state: "open" });
+
+    const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));
+    expect(r).toMatchObject({ status: 503, body: { error: "gateway_not_ready" } });
+    const diagnostic = await resposta(
+      await worker.fetch(new Request("https://test/connection-status"), env(db)),
+    );
+    expect(diagnostic).toMatchObject({
+      status: 502,
+      body: { ok: false, reason: "project_mismatch" },
+    });
+    expect(db.events.size).toBe(0);
+    expect(envio).not.toHaveBeenCalled();
+  });
+
+  it("não responde quando a sessão FlowBot estiver desconectada", async () => {
+    const db = dbFake();
+    const envio = vi.fn();
+    stubGatewaySend(envio, { project: "flowbot", state: "close" });
+
+    const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));
+    expect(r).toMatchObject({ status: 503, body: { error: "gateway_not_ready" } });
+    const diagnostic = await resposta(
+      await worker.fetch(new Request("https://test/connection-status"), env(db)),
+    );
+    expect(diagnostic).toMatchObject({ status: 200, body: { ok: true, state: "close" } });
+    expect(db.events.size).toBe(0);
+    expect(envio).not.toHaveBeenCalled();
+  });
+
   it("ignora ecos fromMe, grupos e frases fora do teste", async () => {
     const db = dbFake();
     const f = vi.fn();
-    vi.stubGlobal("fetch", f);
+    stubGatewaySend(f);
     const e = env(db);
     expect(
       (await resposta(await worker.fetch(chamada("teste flowbot", { fromMe: true }), e))).body
@@ -194,8 +238,7 @@ describe("piloto Cloudflare FlowBot", () => {
   it("responde somente uma vez a uma saudação, depois às opções 1 e 2", async () => {
     const db = dbFake();
     const calls = [];
-    vi.stubGlobal(
-      "fetch",
+    stubGatewaySend(
       vi.fn(async (url, opts) => {
         calls.push({ url, headers: opts.headers, data: JSON.parse(opts.body) });
         return new Response(
@@ -227,8 +270,7 @@ describe("piloto Cloudflare FlowBot", () => {
   it("rejeição definitiva dos botões envia menu de texto com outra chave idempotente", async () => {
     const db = dbFake();
     const calls = [];
-    vi.stubGlobal(
-      "fetch",
+    stubGatewaySend(
       vi.fn(async (url, options) => {
         calls.push({ url, headers: options.headers, data: JSON.parse(options.body) });
         return url.endsWith("/buttons")
@@ -248,8 +290,7 @@ describe("piloto Cloudflare FlowBot", () => {
   it("menu texto permite alternativa manual quando o WhatsApp não exibe botões", async () => {
     const db = dbFake();
     const calls = [];
-    vi.stubGlobal(
-      "fetch",
+    stubGatewaySend(
       vi.fn(async (url, opts) => {
         calls.push({ url, data: JSON.parse(opts.body) });
         return new Response(JSON.stringify({ status: "accepted" }), { status: 202 });
@@ -267,7 +308,7 @@ describe("piloto Cloudflare FlowBot", () => {
     const f = vi.fn(
       async () => new Response(JSON.stringify({ status: "accepted" }), { status: 202 }),
     );
-    vi.stubGlobal("fetch", f);
+    stubGatewaySend(f);
     const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));
     expect(r.body.outcome).toBe("sent");
     expect(f).toHaveBeenCalledTimes(1);
@@ -278,7 +319,7 @@ describe("piloto Cloudflare FlowBot", () => {
     const f = vi.fn(
       async () => new Response(JSON.stringify({ status: "unknown" }), { status: 409 }),
     );
-    vi.stubGlobal("fetch", f);
+    stubGatewaySend(f);
     const e = env(db);
     const first = await resposta(await worker.fetch(chamada("teste flowbot"), e));
     expect(first.body.outcome).toBe("unknown");
@@ -291,8 +332,7 @@ describe("piloto Cloudflare FlowBot", () => {
 
   it("não envia duas mensagens quando o gateway responde 401", async () => {
     const db = dbFake();
-    vi.stubGlobal(
-      "fetch",
+    stubGatewaySend(
       vi.fn(async () => new Response("unauthorized", { status: 401 })),
     );
     const r = await resposta(await worker.fetch(chamada("teste flowbot"), env(db)));
