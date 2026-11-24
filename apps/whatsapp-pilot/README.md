@@ -6,6 +6,7 @@ Não faz agendamento, envia campanhas nem executa intervenções humanas. O moto
 ## Comportamento
 
 - `POST /webhooks/evolution` autentica `x-webhook-secret`, valida `instance`, ignora `fromMe`, grupos e tipos desconhecidos.
+- **Restrito aos números em `PILOT_ALLOWED_NUMBERS`**: sem lista, falha fechado; números fora da lista não entram na D1 nem geram chamadas de envio.
 - Somente responde à frase `teste flowbot`, `flowbot teste`, `oi flowbot` ou `olá flowbot`. A saudação tenta primeiro **botões experimentais** na rota `/v1/messages/buttons`; aceita o clique por ID `1` ou `2` durante 24h.
 - Em rejeições definitivas de botões (HTTP 400/404/405/415/422), envia menu numérico usando **nova chave idempotente por formato**. Em `pending`, `unknown`, timeout, 429 ou 5xx **não reenvia**: pode já ter enviado.
 - Se o gateway aceitar mas o WhatsApp não renderizar, o cliente pode enviar **`menu texto`** para receber a versão textual. Não há confirmação técnica de renderização pelos retornos `accepted`.
@@ -20,6 +21,7 @@ Não faz agendamento, envia campanhas nem executa intervenções humanas. O moto
 - `EVOLUTION_ALVO_TOKEN` (**segredo**; Bearer exclusivo do FlowBot).
 - `WEBHOOK_SECRET` (**segredo**, mínimo 32 caracteres, configurado também na instância Evolution específica).
 - `INSTANCE_NAME` (nome real da instância de teste do FlowBot).
+- `PILOT_ALLOWED_NUMBERS` (**segredo**; números próprios/autorizados separados por vírgula, em formato internacional apenas com dígitos, exatamente como no `remoteJid`, exemplo fictício: `5582999990000`).
 - `PILOT_ENABLED` (0/1, iniciar desligado até confirmar webhook).
 - `PILOT_INTERACTIVE_BUTTONS` (1/0; opcional, padrão 1 quando piloto habilitado; use 0 para forçar menu numérico sem alterar o gateway).
 
@@ -28,7 +30,7 @@ O token temporário deve ser substituído após homologação.
 
 ## Procedimento
 
-1. Confirme o nome **exato** da instância no painel Evolution Alvo.
+1. Confirme o nome **exato** da instância no painel Evolution Alvo e cadastre `PILOT_ALLOWED_NUMBERS` como segredo somente com números de teste autorizados. O piloto permanece indisponível sem essa lista.
 2. Configure no servidor Evolution nativo, **somente nessa instância**, o webhook de `messages.upsert` apontando para `https://<worker>/webhooks/evolution`, com cabeçalho `x-webhook-secret` correspondente.
 3. Confirme GET /health e teste POST com segredo correto/incorreto, fromMe e ID repetido.
 4. Ative PILOT_ENABLED=1 somente após confirmar a autenticação e o isolamento.
