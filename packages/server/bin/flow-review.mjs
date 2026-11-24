@@ -37,7 +37,7 @@ function main() {
       "uso: autor:revisar proposta.json revisao.json relatorio.json workspaceId [perfil.json]",
     );
   const paths = [propostaPath, revisaoPath, relatorioPath, ...(perfilPath ? [perfilPath] : [])].map(
-    resolve,
+    (path) => resolve(path),
   );
   if (new Set(paths).size !== paths.length)
     return fail(1, "arquivos de origem e relatório precisam ser distintos.");
