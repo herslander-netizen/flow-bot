@@ -5,6 +5,7 @@
  * Os envios são at-most-once por evento: incerteza bloqueia a conversa.
  */
 const URL_GATEWAY = "https://evolution-alvo.regalbrink4.chatgpt.site";
+const PROJETO_GATEWAY = "flowbot";
 const TE = new TextEncoder();
 const LIMITE_CORPO = 32768;
 const DIAS_RETENCAO = 30;
@@ -170,6 +171,31 @@ async function enviarGateway(env, numero, mensagem, key) {
   }
 }
 
+async function conexaoDoProjeto(env) {
+  if (!env.EVOLUTION_ALVO_TOKEN) return { ok: false, reason: "no_token" };
+  try {
+    const upstream = await fetch(URL_GATEWAY + "/v1/connection", {
+      headers: {
+        authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN,
+        accept: "application/json",
+      },
+      redirect: "error",
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!upstream.ok)
+      return { ok: false, reason: "gateway_rejected", upstreamStatus: upstream.status };
+    const value = await upstream.json().catch(() => null);
+    if (value?.project !== PROJETO_GATEWAY)
+      return { ok: false, reason: "project_mismatch", upstreamStatus: upstream.status };
+    const state = ["open", "close", "connecting", "unconfigured"].includes(value?.state)
+      ? value.state
+      : "unknown";
+    return { ok: true, state, upstreamStatus: upstream.status };
+  } catch {
+    return { ok: false, reason: "upstream_unavailable" };
+  }
+}
+
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
@@ -188,28 +214,8 @@ export default {
       });
     }
     if (request.method === "GET" && path === "/connection-status") {
-      if (!env.EVOLUTION_ALVO_TOKEN) return responder(503, { ok: false, reason: "no_token" });
-      try {
-        const upstream = await fetch(URL_GATEWAY + "/v1/connection", {
-          headers: {
-            authorization: "Bearer " + env.EVOLUTION_ALVO_TOKEN,
-            accept: "application/json",
-          },
-          redirect: "error",
-          signal: AbortSignal.timeout(6000),
-        });
-        const value = await upstream.json().catch(() => null);
-        const state = ["open", "close", "connecting", "unconfigured"].includes(value?.state)
-          ? value.state
-          : "unknown";
-        return responder(upstream.ok ? 200 : 502, {
-          ok: upstream.ok,
-          state: upstream.ok ? state : "unknown",
-          upstreamStatus: upstream.status,
-        });
-      } catch {
-        return responder(503, { ok: false, reason: "upstream_unavailable" });
-      }
+      const connection = await conexaoDoProjeto(env);
+      return responder(connection.ok ? 200 : 502, connection);
     }
     if (path !== "/webhooks/evolution") return responder(404, { error: "not_found" });
     if (request.method !== "POST") return responder(405, { error: "method_not_allowed" });
@@ -252,6 +258,11 @@ export default {
     const sessionActive = Number(previous?.expires_at || 0) > now;
     const responseText = respostaDoPiloto(event.input, sessionActive);
     if (!responseText) return responder(200, { ok: true, ignored: true });
+
+    // Não enviar com token de outro projeto ou sessão do FlowBot desconectada.
+    const connection = await conexaoDoProjeto(env);
+    if (!connection.ok || connection.state !== "open")
+      return responder(503, { error: "gateway_not_ready" });
 
     // Sem texto pessoal no banco; deduplicação é feita pelo ID da Evolution.
     const inserted = await env.DB.prepare(
